@@ -1,0 +1,27 @@
+---
+title: "basic_stats"
+author: "Will Schrepferman"
+date: "10/22/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library("tidyverse")
+library("rjson")
+library("tidyjson")
+```
+
+```{r read_data}
+json_file <- "school-segregation-cases/1000012.json"
+json_data <- fromJSON(file=json_file)
+data_flat <- flatten(json_data)
+data_tbl <- as_tibble(data_flat)
+```
+
+```{r read_data_tidy}
+json_file <- "school-segregation-cases/1000012.json"
+json_data <- fromJSON(file=json_file)
+```
+
+
