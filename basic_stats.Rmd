@@ -10,18 +10,102 @@ knitr::opts_chunk$set(echo = TRUE)
 library("tidyverse")
 library("rjson")
 library("tidyjson")
+library("glue")
+library("skimr")
 ```
 
-```{r read_data}
+```{r read_data_one_case}
+# testing functionality of reading one single json file into a tibble row
+
 json_file <- "school-segregation-cases/1000012.json"
+
+# using rjson package functionality
 json_data <- fromJSON(file=json_file)
-data_flat <- flatten(json_data)
-data_tbl <- as_tibble(data_flat)
+
+
+# these two methods are obtional, but make the data a little uglier
+# data_flat <- flatten(json_data)
+# data_tbl <- as_tibble(data_flat)
+
+# read only the elements we need from their place in the json object
+full_text <- json_data$clusters[[1]]$sub_opinions[[1]]$html_lawbox[1]
+id <- json_data$id
+resource_uri <- json_data$resource_uri
+court_raw <- json_data$court
+judges <- json_data$clusters[[1]]$judges[1]
+date_filed <- json_data$clusters[[1]]$date_filed[1]
+slug <- json_data$clusters[[1]]$slug
+federal_cite <- json_data$clusters[[1]]$federal_cite_one[1]
+
+
+# put items into a tibble row
+tibble_data <- tibble(id = id, slug = slug, date_filed = date_filed, court_raw = court_raw, judges = judges, federal_cite = federal_cite,
+                      full_text = full_text, resource_uri = resource_uri)
 ```
+```{r read_data_multiple_cases}
+# list of all files
+files <- list.files("school-segregation-cases")
+
+# function to read one file into a coherent row
+readfile <- function(file){
+  
+  # get the whole file
+  json_file <- glue("school-segregation-cases/", file, sep = "")
+
+  # using rjson package functionality
+  json_data <- fromJSON(file=json_file)
+  
+  # these two methods are obtional, but make the data a little uglier
+  # data_flat <- flatten(json_data)
+  # data_tbl <- as_tibble(data_flat)
+  
+  # read only the elements we need from their place in the json object
+  full_text <- json_data$clusters[[1]]$sub_opinions[[1]]$html_lawbox[1]
+  id <- json_data$id
+  resource_uri <- json_data$resource_uri
+  court_raw <- json_data$court
+  judges <- json_data$clusters[[1]]$judges[1]
+  date_filed <- json_data$clusters[[1]]$date_filed[1]
+  slug <- json_data$clusters[[1]]$slug
+  federal_cite <- json_data$clusters[[1]]$federal_cite_one[1]
+  
+  
+  # put items into a tibble row
+  tibble_data <- tibble(id = id, slug = slug, date_filed = date_filed, court_raw = court_raw, judges = judges, federal_cite = federal_cite,
+                      full_text = full_text, resource_uri = resource_uri)
+}
+
+# make an empty tibble to put everything in
+data_complete <- tibble()
+
+for(i in files){
+  # add tibble row from the function onto the final tibble
+  data_complete <- rbind(data_complete, readfile(i))
+}
+
+# ERROR: running the method above hits a snag when you get to file id 3032772
+# will run analysis on the 8287 of 13572 objects that made their way into data frame
+
+skim(data_complete)
+
+head(data_complete, n = 100)
+
+# To-Do:
+# Discuss which cases to exclude
+# Resolve error that only gives me half of the data set
+# create a 'document length' variable
+# export to csv?
+```
+
+
+
+
 
 ```{r read_data_tidy}
+# This approach yielded poor results
 json_file <- "school-segregation-cases/1000012.json"
 json_data <- fromJSON(file=json_file)
+json_data %>% spread_all
 ```
 
 
