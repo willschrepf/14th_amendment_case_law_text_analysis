@@ -12,6 +12,7 @@ library("rjson")
 library("tidyjson")
 library("glue")
 library("skimr")
+library("openxlsx")
 ```
 
 ```{r read_data_one_case}
@@ -59,7 +60,7 @@ readfile <- function(file){
   # using rjson package functionality
   json_data <- fromJSON(file=json_file)
   
-  # these two methods are obtional, but make the data a little uglier
+  # these two methods are optional, but make the data a little uglier
   # data_flat <- flatten(json_data)
   # data_tbl <- as_tibble(data_flat)
   
@@ -82,10 +83,13 @@ readfile <- function(file){
 # make an empty tibble to put everything in
 data_complete <- tibble()
 
+
 for(i in files){
   # add tibble row from the function onto the final tibble
   data_complete <- rbind(data_complete, readfile(i))
 }
+
+tail(data_complete)
 
 # ERROR: running the method above hits a snag when you get to file id 3032772
 # will run analysis on the 8287 of 13572 objects that made their way into data frame
@@ -99,16 +103,53 @@ head(data_complete, n = 100)
 none_missing_data_complete <- data_complete %>%
   filter(judges != "" & federal_cite != "" & full_text != "")
 
+# create a set of cases with at least 1 incomplete field to export for review
+
+incomplete_cases <- data_complete %>%
+  filter(judges == "" | federal_cite == "" | full_text == "")
+
+incomplete_cases <- incomplete_cases %>%
+  mutate_if(is.character, list(~na_if(.,""))) 
+
+skim(incomplete_cases)
+head(incomplete_cases)
+
+write.xlsx(incomplete_cases, "incomplete_cases_export.xlsx")
+
 # 3593 of 8287 (43.4%)
 
 # To-Do:
-# Discuss which cases to exclude
-# Resolve error that only gives me half of the data set
+# Discuss which cases to exclude - DONE
+# Resolve error that only gives me half of the data set - TRIED FOR AN HOUR AND COULD NOT RESOLVE
 # create a 'document length' variable
-# export to csv?
 # mapping court_raw to an actual court variable -> go to court listener
-# export list of incomplete cases
+# export list of incomplete cases - DONE
 ```
+
+```{r text_cleaning}
+# create testing data with only 25 cases for computing speed purposes
+
+test_data <- head(none_missing_data_complete, 25)
+
+# add variables for year, clean up date type, cut fluff from court type
+test_data <- test_data %>%
+  mutate(year = as.numeric(substr(date_filed, start = 1, stop = 4))) %>%
+  mutate(exact_date = as.Date(date_filed)) %>%
+  mutate(court = substr(court_raw, start = 53, stop = (nchar(court_raw)-1))) %>%
+  select(id, slug, year, court, judges, federal_cite, full_text, exact_date, resource_uri)
+
+# get an idea of document word counts pre-clean
+
+test_data <- test_data %>%
+  mutate(doc_length_pre_clean = sapply(strsplit(full_text, " "), length))
+
+test_data <- test_data %>%
+  mutate(clean_text = str_replace_all(full_text, "[^[:alnum:]]", " ")) %>%
+  mutate(clean_text = str_replace_all(clean_text, "^div center b ", "")) %>%
+  select(id, slug, year, court, judges, federal_cite, clean_text, exact_date, resource_uri)
+
+```
+
 
 
 ```{r read_data_tidy}
