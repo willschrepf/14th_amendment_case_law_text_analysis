@@ -13,6 +13,8 @@ library("tidyjson")
 library("glue")
 library("skimr")
 library("openxlsx")
+library("tidytext")
+library("SnowballC")
 ```
 
 ```{r read_data_one_case}
@@ -143,10 +145,67 @@ test_data <- test_data %>%
 test_data <- test_data %>%
   mutate(doc_length_pre_clean = sapply(strsplit(full_text, " "), length))
 
+# remove formatting characters. still working on this TODO
+
 test_data <- test_data %>%
   mutate(clean_text = str_replace_all(full_text, "[^[:alnum:]]", " ")) %>%
-  mutate(clean_text = str_replace_all(clean_text, "^div center b ", "")) %>%
+  mutate(clean_text = str_remove(clean_text, "div")) %>%
+  mutate(clean_text = str_remove(clean_text, "h1")) %>%
   select(id, slug, year, court, judges, federal_cite, clean_text, exact_date, resource_uri)
+
+# unnesting tokens for one row; this will be turned into a function eventually
+
+test_data_tokens <- test_data %>%
+  filter(id == 1000012) %>%
+  unnest_tokens(word, clean_text) %>%
+  anti_join(get_stopwords()) %>%
+  select(word)
+
+# test for most common words. this is very broken, need to get rid of those weird characters.
+
+test_data_tokens %>%
+  count(word, sort = TRUE)
+
+# stem words using porter stemming algorithm: https://tartarus.org/martin/PorterStemmer/
+
+test_data_tokens_stemmed <- test_data_tokens %>%
+  mutate(stem = wordStem(word)) %>%
+  count(stem, sort = TRUE)
+
+# make a lil graph
+
+top_words_graph <- test_data_tokens_stemmed %>%
+  top_n(25, n) %>%
+  ggplot(aes(n, fct_reorder(stem, n))) +
+  geom_col(show.legend = FALSE) +
+  labs(x = "Frequency", y = NULL)
+
+# function to do all that for any given id:
+
+get_top_words <- function(id){
+  test_data_tokens <- test_data %>%
+    filter(id == id) %>%
+    unnest_tokens(word, clean_text) %>%
+    anti_join(get_stopwords()) %>%
+    select(word)
+
+  test_data_tokens %>%
+    count(word, sort = TRUE)
+  
+  test_data_tokens_stemmed <- test_data_tokens %>%
+    mutate(stem = wordStem(word)) %>%
+    count(stem, sort = TRUE)
+  
+  top_words_graph <- test_data_tokens_stemmed %>%
+    top_n(25, n) %>%
+    ggplot(aes(n, fct_reorder(stem, n))) +
+    geom_col(show.legend = FALSE) +
+    labs(x = "Frequency", y = NULL)
+  
+  (top_words_graph)
+}
+
+get_top_words(id = 1002370)
 
 ```
 
