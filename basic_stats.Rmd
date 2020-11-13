@@ -42,6 +42,10 @@ federal_cite <- json_data$clusters[[1]]$federal_cite_one[1]
 tibble_data <- tibble(id = id, slug = slug, date_filed = date_filed, court_raw = court_raw, judges = judges, federal_cite = federal_cite,
                       full_text = full_text, resource_uri = resource_uri)
 ```
+
+
+
+
 ```{r read_data_multiple_cases}
 # list of all files
 files <- list.files("school-segregation-cases")
@@ -90,15 +94,21 @@ skim(data_complete)
 
 head(data_complete, n = 100)
 
+# filter out only cases for which we have all variables
+
+none_missing_data_complete <- data_complete %>%
+  filter(judges != "" & federal_cite != "" & full_text != "")
+
+# 3593 of 8287 (43.4%)
+
 # To-Do:
 # Discuss which cases to exclude
 # Resolve error that only gives me half of the data set
 # create a 'document length' variable
 # export to csv?
+# mapping court_raw to an actual court variable -> go to court listener
+# export list of incomplete cases
 ```
-
-
-
 
 
 ```{r read_data_tidy}
