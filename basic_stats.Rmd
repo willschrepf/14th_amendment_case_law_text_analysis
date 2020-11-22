@@ -15,6 +15,7 @@ library("skimr")
 library("openxlsx")
 library("tidytext")
 library("SnowballC")
+library("rvest")
 ```
 
 ```{r read_data_one_case}
@@ -123,9 +124,10 @@ write.xlsx(incomplete_cases, "incomplete_cases_export.xlsx")
 # To-Do:
 # Discuss which cases to exclude - DONE
 # Resolve error that only gives me half of the data set - TRIED FOR AN HOUR AND COULD NOT RESOLVE
-# create a 'document length' variable
+# create a 'document length' variable - DONE
 # mapping court_raw to an actual court variable -> go to court listener
 # export list of incomplete cases - DONE
+# begin stemming + preprocessing text - DONE
 ```
 
 ```{r text_cleaning}
@@ -147,11 +149,23 @@ test_data <- test_data %>%
 
 # remove formatting characters. still working on this TODO
 
+#test_data <- test_data %>%
+#  mutate(clean_text = str_replace_all(full_text, "[^[:alnum:]]", " ")) %>%
+#  mutate(clean_text = str_remove(clean_text, "div")) %>%
+#  mutate(clean_text = str_remove(clean_text, "h1")) %>%
+#  select(id, slug, year, court, judges, federal_cite, clean_text, exact_date, resource_uri)
+
+strip_html <- function(s) {
+    html_text(read_html(s))
+}
+
+clean_text <- function(htmlString) {
+  return(gsub("<.*?>", "", htmlString))
+}
+
 test_data <- test_data %>%
-  mutate(clean_text = str_replace_all(full_text, "[^[:alnum:]]", " ")) %>%
-  mutate(clean_text = str_remove(clean_text, "div")) %>%
-  mutate(clean_text = str_remove(clean_text, "h1")) %>%
-  select(id, slug, year, court, judges, federal_cite, clean_text, exact_date, resource_uri)
+  mutate(clean_text = clean_text(full_text)) %>%
+  mutate(doc_length_post_clean = sapply(strsplit(clean_text, " "), length))
 
 # unnesting tokens for one row; this will be turned into a function eventually
 
@@ -197,7 +211,7 @@ get_top_words <- function(id){
     count(stem, sort = TRUE)
   
   top_words_graph <- test_data_tokens_stemmed %>%
-    top_n(25, n) %>%
+    top_n(40, n) %>%
     ggplot(aes(n, fct_reorder(stem, n))) +
     geom_col(show.legend = FALSE) +
     labs(x = "Frequency", y = NULL)
@@ -205,8 +219,57 @@ get_top_words <- function(id){
   (top_words_graph)
 }
 
-get_top_words(id = 1002370)
+get_top_words(id = 1003718)
 
+
+
+# BEGIN WORKING ON WORD FREQUENCY SEARCH
+
+
+
+```
+
+
+```{r}
+full_corpus <- none_missing_data_complete %>%
+  mutate(year = as.numeric(substr(date_filed, start = 1, stop = 4))) %>%
+  mutate(exact_date = as.Date(date_filed)) %>%
+  mutate(court = substr(court_raw, start = 53, stop = (nchar(court_raw)-1))) %>%
+  select(id, slug, year, court, judges, federal_cite, full_text, exact_date, resource_uri)
+
+corpus_40s <- full_corpus %>%
+  filter(year >= 1940 & year <= 1949) %>%
+  mutate(doc_length_pre_clean = sapply(strsplit(full_text, " "), length)) %>%
+  mutate(clean_text = clean_text(full_text)) %>%
+  mutate(doc_length_post_clean = sapply(strsplit(clean_text, " "), length)) %>%
+  select(id, slug, year, court, judges, federal_cite, clean_text, doc_length_post_clean, exact_date, resource_uri)
+  
+
+
+search_for_single_word <- function(corpus_for_search, word){
+  
+  num_cases = nrow(corpus_for_search)
+  
+  tokens <- corpus_to_search %>%
+    unnest_tokens(word, clean_text) %>%
+    anti_join(get_stopwords()) %>%
+    select(word)
+  
+  token_stems <- tokens %>%
+    mutate(stem = wordStem(word)) %>%
+    count(stem, sort = TRUE)
+  
+  stem_word <- wordStem(word)
+  
+  token_stems %>%
+    filter(stem = stem_word) %>%
+    select(n) %>%
+    slice(1)
+  
+  num_occurences
+}
+
+search_for_single_word(corpus_40s, "court")
 ```
 
 
@@ -217,5 +280,24 @@ json_file <- "school-segregation-cases/1000012.json"
 json_data <- fromJSON(file=json_file)
 json_data %>% spread_all
 ```
+
+```{r courts}
+court_counts <- data_complete %>%
+  mutate(court = substr(court_raw, start = 53, stop = (nchar(court_raw)-1))) %>%
+  group_by(court) %>%
+  summarise(total_cases = n()) %>%
+  arrange(-total_cases)
+  
+
+write_csv(court_counts, "court_counts_export.csv")
+
+court_counts %>%
+  head(20) %>%
+  ggplot(aes(x = reorder(court, total_cases), y = total_cases)) +
+  geom_bar(stat="identity") +
+  coord_flip() +
+  labs(x = "Court (abbreviated)", y = "Total Cases in Corpus", title = "Top 20 Courts Represented in Corpus")
+```
+
 
 
