@@ -246,7 +246,7 @@ corpus_40s <- full_corpus %>%
   
 
 
-search_for_single_word <- function(corpus_for_search, word){
+search_for_single_word <- function(corpus_for_search, input_word){
   
   num_cases = nrow(corpus_for_search)
   
@@ -259,17 +259,117 @@ search_for_single_word <- function(corpus_for_search, word){
     mutate(stem = wordStem(word)) %>%
     count(stem, sort = TRUE)
   
-  stem_word <- wordStem(word)
+  stem_input_word <- wordStem(input_word)
   
-  token_stems %>%
-    filter(stem = stem_word) %>%
+  num_occurences <- token_stems %>%
+    filter(stem == stem_word) %>%
     select(n) %>%
-    slice(1)
+    slice(1) %>%
+    pull(1)
   
   num_occurences
 }
 
-search_for_single_word(corpus_40s, "court")
+search_for_single_word(corpus_40s, "diversity")
+
+input_word <- "state"
+
+search_for_single_word_graph <- function(corpus_for_search, input_word){
+  
+  tokens_graph <- corpus_for_search %>%
+    unnest_tokens(word, clean_text) %>%
+    anti_join(get_stopwords()) %>%
+    select(word, year)
+  
+  token_stems_graph <- tokens_graph %>%
+    group_by(year) %>%
+    mutate(stem = wordStem(word)) %>%
+    count(stem, sort = TRUE)
+  
+  yearly_totals <- token_stems_graph %>%
+    group_by(year) %>%
+    summarize(yearly_total = sum(n))
+  
+  stem_input_word_graph <- wordStem(input_word)
+  
+  num_occurences_tibble <- token_stems_graph %>%
+    filter(stem == stem_input_word_graph)
+  
+  num_occurences_data <- left_join(num_occurences_tibble, yearly_totals, by = "year") %>%
+    mutate(percent_occurences = (n/yearly_total)) %>%
+    select(stem, year, percent_occurences) %>%
+    arrange(year)
+  
+  stem_to_look_for_array <- num_occurences_data %>%
+    select(stem) %>%
+    pull(2)
+  
+  stem_to_look_for <- stem_to_look_for_array[1]
+    
+  num_occurences_graph <- num_occurences_data %>%
+    ggplot(aes(x = year, y = percent_occurences)) +
+    geom_line() + 
+    scale_x_continuous(breaks = round(seq(min(num_occurences_data$year), max(num_occurences_data$year), by = 1),1)) +
+    scale_y_continuous(expand = c(0, 0), limits = c(0, NA)) +
+    labs(title = paste("Occurences of Term: '", stem_to_look_for, "' in Given Corpus", sep = ""),
+         x = "Year", y = "Percent Occurrences", subtitle = "As a Percentage of Total Words in Corpus for a Given Year")
+  
+  num_occurences_graph
+  
+}
+
+
+
+```
+
+
+```{r multi_search}
+
+## MULTIPLE WORDS: NEED TO FIX
+
+search_for_multiple_words <- function(corpus_for_search, words){
+  
+  num_cases = nrow(corpus_for_search)
+  
+  tokens <- corpus_to_search %>%
+    unnest_tokens(word, clean_text) %>%
+    anti_join(get_stopwords()) %>%
+    select(word)
+  
+  token_stems <- tokens %>%
+    mutate(stem = wordStem(word)) %>%
+    count(stem, sort = TRUE)
+  
+  raw_words <- tibble(raw_word = character())
+  
+  for(i in length(words)){
+    raw_words <- rbind(raw_words, words[i])
+  }
+  
+  stem_words <- raw_words %>%
+    (word = wordStem(word)) %>%
+    select(word)
+  
+  occurences <- right_join(token_stems, stem_words, by = "word")
+  
+  occurences
+}
+
+
+test_words <- c("diversity", "inclusion", "intangible")
+
+raw_words <- tibble(raw_word = character())
+  
+for(i in length(test_words)){
+  raw_words <- raw_words %>%
+      add_row(raw_word = test_words[i])
+}
+  
+  stem_words <- raw_words %>%
+    (word = wordStem(word)) %>%
+    select(word)
+
+search_for_multiple_words(corpus_40s, test_words)
 ```
 
 
