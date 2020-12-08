@@ -155,6 +155,8 @@ test_data <- test_data %>%
 #  mutate(clean_text = str_remove(clean_text, "h1")) %>%
 #  select(id, slug, year, court, judges, federal_cite, clean_text, exact_date, resource_uri)
 
+# update, it all worked with this silly goose of a function:
+
 strip_html <- function(s) {
     html_text(read_html(s))
 }
@@ -230,7 +232,7 @@ get_top_words(id = 1003718)
 ```
 
 
-```{r}
+```{r single_search}
 full_corpus <- none_missing_data_complete %>%
   mutate(year = as.numeric(substr(date_filed, start = 1, stop = 4))) %>%
   mutate(exact_date = as.Date(date_filed)) %>%
@@ -250,7 +252,7 @@ search_for_single_word <- function(corpus_for_search, input_word){
   
   num_cases = nrow(corpus_for_search)
   
-  tokens <- corpus_to_search %>%
+  tokens <- corpus_for_search %>%
     unnest_tokens(word, clean_text) %>%
     anti_join(get_stopwords()) %>%
     select(word)
@@ -262,7 +264,7 @@ search_for_single_word <- function(corpus_for_search, input_word){
   stem_input_word <- wordStem(input_word)
   
   num_occurences <- token_stems %>%
-    filter(stem == stem_word) %>%
+    filter(stem == stem_input_word) %>%
     select(n) %>%
     slice(1) %>%
     pull(1)
@@ -318,14 +320,36 @@ search_for_single_word_graph <- function(corpus_for_search, input_word){
   
 }
 
+search_for_single_word_graph(corpus_40s, "segregation")
 
+## JIMMY NOTES 12/8
+#Having spoken with my advisers, we should start in the twenty years after Brown v. Board, so 1950-1974 (stating a bit before). This  #was sort of the desegregation heyday when our search terms are most likely to appear prominently, as well as the years before Brown  #where a lot of the conceptual work was happening in the lower courts. 
+
+#As a first past, I’d love to treat all the terms labeled “core” in this Excel sheet as our master dictionary (sort of like the broad #dictionary they used in that Nyarko paper). In the twenty-five year period, I’d like to see the trend line for the appearance of all #words in the set, treating the dictionary as a block. I’d also like to get a count and ranking of individual term appearances, and #ideally a list of the cases in which they appear. I’d also love to see if they seem to be particularly pronounced in the rulings of #one lower court, appellate court, or state court, and identify particular documents that seem especially saturated with dictionary #terms. Going in, we know that the terms are likely to appear only in a small number of cases, so we shouldn’t be discouraged by low #numbers. 
+
+#I’d also love to get individualized results for the following words (select terms that have been already established in the #literature as important/indicative of jurisprudential thinking). This list will expand and contract as the project takes further #shape. Ideally, we’ll be able to pull up paragraphs with these terms for more qualitative analysis. Eventually we will want to do #cosine similarities to see which terms cluster around our key words of interest, but that’s for another day! 
+
+#Alumni 
+#Associate
+#Mingle 
+#Dominant class
+#Intangible
+#Objective factor
+#Social scientific 
+#Mainstream
+#Non-quantitative
+#Old boy
+#Networks
+#Prestige
+#Measurement
+#Status 
+#Exposure
 
 ```
 
-
 ```{r multi_search}
 
-## MULTIPLE WORDS: NEED TO FIX
+## MULTIPLE WORDS: NEED TO FIX (12/4)
 
 search_for_multiple_words <- function(corpus_for_search, words){
   
