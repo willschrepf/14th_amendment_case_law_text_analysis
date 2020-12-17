@@ -161,6 +161,8 @@ strip_html <- function(s) {
     html_text(read_html(s))
 }
 
+# ANTI JOIN REFERENCE TERMS when jimmy sends them
+
 clean_text <- function(htmlString) {
   return(gsub("<.*?>", "", htmlString))
 }
@@ -245,7 +247,13 @@ corpus_40s <- full_corpus %>%
   mutate(clean_text = clean_text(full_text)) %>%
   mutate(doc_length_post_clean = sapply(strsplit(clean_text, " "), length)) %>%
   select(id, slug, year, court, judges, federal_cite, clean_text, doc_length_post_clean, exact_date, resource_uri)
-  
+
+corpus_relevant <- full_corpus %>%
+  filter(year >= 1950 & year <= 1974) %>%
+  mutate(doc_length_pre_clean = sapply(strsplit(full_text, " "), length)) %>%
+  mutate(clean_text = clean_text(full_text)) %>%
+  mutate(doc_length_post_clean = sapply(strsplit(clean_text, " "), length)) %>%
+  select(id, slug, year, court, judges, federal_cite, clean_text, doc_length_post_clean, exact_date, resource_uri)
 
 
 search_for_single_word <- function(corpus_for_search, input_word){
@@ -272,9 +280,7 @@ search_for_single_word <- function(corpus_for_search, input_word){
   num_occurences
 }
 
-search_for_single_word(corpus_40s, "diversity")
-
-input_word <- "state"
+search_for_single_word(corpus_relevant, "diversity")
 
 search_for_single_word_graph <- function(corpus_for_search, input_word){
   
@@ -297,10 +303,16 @@ search_for_single_word_graph <- function(corpus_for_search, input_word){
   num_occurences_tibble <- token_stems_graph %>%
     filter(stem == stem_input_word_graph)
   
-  num_occurences_data <- left_join(num_occurences_tibble, yearly_totals, by = "year") %>%
+  total_num_occurences <- num_occurences_tibble %>%
+    ungroup() %>%
+    summarise(total = sum(n))
+  
+  num_occurences_data <- right_join(num_occurences_tibble, yearly_totals, by = "year") %>%
     mutate(percent_occurences = (n/yearly_total)) %>%
     select(stem, year, percent_occurences) %>%
     arrange(year)
+  
+  num_occurences_data <- replace_na(num_occurences_data, list(percent_occurences = 0, stem = stem_input_word_graph))
   
   stem_to_look_for_array <- num_occurences_data %>%
     select(stem) %>%
@@ -311,23 +323,27 @@ search_for_single_word_graph <- function(corpus_for_search, input_word){
   num_occurences_graph <- num_occurences_data %>%
     ggplot(aes(x = year, y = percent_occurences)) +
     geom_line() + 
-    scale_x_continuous(breaks = round(seq(min(num_occurences_data$year), max(num_occurences_data$year), by = 1),1)) +
+    scale_x_continuous(breaks = round(seq(min(yearly_totals$year), max(yearly_totals$year), by = 5),1)) +
     scale_y_continuous(expand = c(0, 0), limits = c(0, NA)) +
-    labs(title = paste("Occurences of Term: '", stem_to_look_for, "' in Given Corpus", sep = ""),
-         x = "Year", y = "Percent Occurrences", subtitle = "As a Percentage of Total Words in Corpus for a Given Year")
+    labs(title = paste("Occurences of Stem: '", stem_to_look_for, "' (lemmatized from '", input_word, "') in Given Corpus", sep = ""),
+         x = "Year", y = "Percent Occurrences", 
+         subtitle = "As a Percentage of Total Words in Corpus for a Given Year",
+         caption = paste("There were ", total_num_occurences$total, " occurences of '", stem_to_look_for, "' in the given corpus.", sep = ""))
   
   num_occurences_graph
   
 }
 
-search_for_single_word_graph(corpus_40s, "segregation")
+
+search_for_single_word_graph(corpus_relevant, "diversity")
+
 
 ## JIMMY NOTES 12/8
-#Having spoken with my advisers, we should start in the twenty years after Brown v. Board, so 1950-1974 (stating a bit before). This  #was sort of the desegregation heyday when our search terms are most likely to appear prominently, as well as the years before Brown  #where a lot of the conceptual work was happening in the lower courts. 
+#Having spoken with my advisers, we should start in the twenty years after Brown v. Board, so 1950-1974 (stating a bit before). This  was sort of the desegregation heyday when our search terms are most likely to appear prominently, as well as the years before Brown  where a lot of the conceptual work was happening in the lower courts. 
 
-#As a first past, I’d love to treat all the terms labeled “core” in this Excel sheet as our master dictionary (sort of like the broad #dictionary they used in that Nyarko paper). In the twenty-five year period, I’d like to see the trend line for the appearance of all #words in the set, treating the dictionary as a block. I’d also like to get a count and ranking of individual term appearances, and #ideally a list of the cases in which they appear. I’d also love to see if they seem to be particularly pronounced in the rulings of #one lower court, appellate court, or state court, and identify particular documents that seem especially saturated with dictionary #terms. Going in, we know that the terms are likely to appear only in a small number of cases, so we shouldn’t be discouraged by low #numbers. 
+#As a first past, I’d love to treat all the terms labeled “core” in this Excel sheet as our master dictionary (sort of like the broad dictionary they used in that Nyarko paper). In the twenty-five year period, I’d like to see the trend line for the appearance of all words in the set, treating the dictionary as a block. I’d also like to get a count and ranking of individual term appearances, and ideally a list of the cases in which they appear. I’d also love to see if they seem to be particularly pronounced in the rulings of one lower court, appellate court, or state court, and identify particular documents that seem especially saturated with dictionary terms. Going in, we know that the terms are likely to appear only in a small number of cases, so we shouldn’t be discouraged by low numbers. 
 
-#I’d also love to get individualized results for the following words (select terms that have been already established in the #literature as important/indicative of jurisprudential thinking). This list will expand and contract as the project takes further #shape. Ideally, we’ll be able to pull up paragraphs with these terms for more qualitative analysis. Eventually we will want to do #cosine similarities to see which terms cluster around our key words of interest, but that’s for another day! 
+#I’d also love to get individualized results for the following words (select terms that have been already established in the literature as important/indicative of jurisprudential thinking). This list will expand and contract as the project takes further shape. Ideally, we’ll be able to pull up paragraphs with these terms for more qualitative analysis. Eventually we will want to do cosine similarities to see which terms cluster around our key words of interest, but that’s for another day! 
 
 #Alumni 
 #Associate
@@ -345,55 +361,93 @@ search_for_single_word_graph(corpus_40s, "segregation")
 #Status 
 #Exposure
 
+search_for_single_word_graph(corpus_relevant, "exposure")
+
 ```
 
 ```{r multi_search}
 
-## MULTIPLE WORDS: NEED TO FIX (12/4)
+## MULTIPLE WORDS
 
-search_for_multiple_words <- function(corpus_for_search, words){
+search_for_multiple_words <- function(corpus_for_search, input_words){
   
   num_cases = nrow(corpus_for_search)
-  
-  tokens <- corpus_to_search %>%
+
+  tokens <- corpus_for_search %>%
     unnest_tokens(word, clean_text) %>%
     anti_join(get_stopwords()) %>%
     select(word)
-  
+
   token_stems <- tokens %>%
     mutate(stem = wordStem(word)) %>%
     count(stem, sort = TRUE)
-  
-  raw_words <- tibble(raw_word = character())
-  
-  for(i in length(words)){
-    raw_words <- rbind(raw_words, words[i])
-  }
-  
+
+  raw_words <- as.tibble(input_words)
+
   stem_words <- raw_words %>%
-    (word = wordStem(word)) %>%
-    select(word)
-  
-  occurences <- right_join(token_stems, stem_words, by = "word")
-  
+    mutate(stem = wordStem(value)) %>%
+    select(stem)
+
+  occurences <- right_join(token_stems, stem_words, by = "stem")
+
   occurences
 }
 
 
 test_words <- c("diversity", "inclusion", "intangible")
 
-raw_words <- tibble(raw_word = character())
-  
-for(i in length(test_words)){
-  raw_words <- raw_words %>%
-      add_row(raw_word = test_words[i])
-}
-  
-  stem_words <- raw_words %>%
-    (word = wordStem(word)) %>%
-    select(word)
+raw_words <- as.tibble(test_words)
+
 
 search_for_multiple_words(corpus_40s, test_words)
+
+
+search_for_multiple_words_graph <- function(corpus_for_search, input_words){
+  num_cases = nrow(corpus_for_search)
+
+  tokens_graph <- corpus_for_search %>%
+    unnest_tokens(word, clean_text) %>%
+    anti_join(get_stopwords()) %>%
+    select(word, year)
+
+  token_stems_graph <- tokens_graph %>%
+    group_by(year) %>%
+    mutate(stem = wordStem(word)) %>%
+    count(stem, sort = TRUE)
+  
+  yearly_totals <- token_stems_graph %>%
+    group_by(year) %>%
+    summarize(yearly_total = sum(n))
+
+  raw_words <- as.tibble(input_words)
+
+  stem_words <- raw_words %>%
+    mutate(stem = wordStem(value)) %>%
+    select(stem)
+
+  occurences <- right_join(token_stems_graph, stem_words, by = "stem")
+
+  occurences_yearly <- occurences %>%
+    group_by(year) %>%
+    summarize(total = sum(n)) %>%
+    left_join(yearly_totals, by = "year") %>%
+    mutate(percent_occurences = total/yearly_total)
+  
+  occurences_graph <- occurences_yearly %>%
+    ggplot(aes(x = year, y = percent_occurences)) +
+      geom_line() + 
+      scale_x_continuous(breaks = round(seq(min(occurences_yearly$year), max(occurences_yearly$year), by = 5),1)) +
+      scale_y_continuous(expand = c(0, 0), limits = c(0, NA)) +
+      labs(title = "Occurences of Set of Given Terms in Given Corpus",
+           x = "Year", y = "Percent Occurrences", subtitle = "As a Percentage of Total Words in Corpus for a Given Year")
+  
+  occurences_graph
+  
+}
+
+
+search_for_multiple_words_graph(corpus_relevant, test_words)
+
 ```
 
 
