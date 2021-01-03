@@ -502,7 +502,11 @@ relevant_terms <- c("intangible", "tangible", "psychological", "prestige", "alum
 
 search_for_multiple_words_graph(corpus_relevant, relevant_terms)
 
+
+# get rankings of words
+
 raw_tibble <- as_tibble(relevant_terms)
+
 stem_word_rankings <- raw_tibble %>%
   mutate(stem = wordStem(value)) %>%
   mutate(word = value) %>%
@@ -519,7 +523,7 @@ word_rankings <- right_join(word_rankings_raw, stem_word_rankings, by = "stem") 
   select(word, stem, n)
   
 
-
+# get rankings of courts
 
 court_rankings_orig <- corpus_relevant %>%
     unnest_tokens(word, clean_text) %>%
@@ -543,14 +547,48 @@ court_totals <- court_rankings_raw %>%
 
 occurences_court <- right_join(court_rankings_raw, stem_words_court, by = "stem")
 
-  # break this down by year
-  
 court_rankings <- occurences_court %>%
   group_by(court) %>%
   summarize(total_dictionary_uses = sum(n)) %>%
   left_join(court_totals, by = "court") %>%
   mutate(relative_occurences = total_dictionary_uses/court_total) %>%
   arrange(-relative_occurences)
+
+
+# get rankings of cases
+
+case_rankings_orig <- corpus_relevant %>%
+    unnest_tokens(word, clean_text) %>%
+    anti_join(get_stopwords()) %>%
+    select(id, slug, word, court)
+  
+case_rankings_raw <- case_rankings_orig %>%
+  group_by(slug, id) %>%
+  mutate(stem = wordStem(word)) %>%
+  count(stem, sort = TRUE)
+
+raw_tibble_case <- as_tibble(relevant_terms)
+
+stem_words_case <- raw_tibble_case %>%
+  mutate(stem = wordStem(value)) %>%
+  select(stem)
+
+case_totals <- case_rankings_raw %>%
+    group_by(slug, id) %>%
+    summarize(case_total = sum(n))
+
+occurences_case <- right_join(case_rankings_raw, stem_words_case, by = "stem")
+
+case_rankings <- occurences_case %>%
+  group_by(id) %>%
+  summarize(total_dictionary_uses = sum(n)) %>%
+  left_join(case_totals, by = "id") %>%
+  mutate(relative_occurences = total_dictionary_uses/case_total) %>%
+  arrange(-relative_occurences) %>%
+  right_join(corpus_relevant, by = c("id", "slug")) %>%
+  select(id, slug, court, total_dictionary_uses, case_total, relative_occurences)
+
+
 
 ```
 
