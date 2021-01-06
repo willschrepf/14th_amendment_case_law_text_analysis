@@ -409,14 +409,43 @@ search_for_single_word_graph(corpus_relevant, "exposure")
 
 # need to redesign function for searching to handle multi-length words
 
+test_phrases <- c("law", "supreme court", "united states", "jury decide whether", "status")
+
+test_phrase_tibble <- as.tibble(test_phrases) %>%
+  unnest_tokens(word, value)
+
 corpus_40s
 
 test_tokens <- corpus_40s %>%
   unnest_tokens(word, clean_text) %>%
   anti_join(get_stopwords())
 
+test_tokens$rownumber = 1:nrow(test_tokens)
+
+test_tokens_filtered <- test_tokens %>%
+  right_join(test_phrase_tibble, by = "word")
+
+final_tibble <- tibble()
+
+# for words where n = 1
+
+test_tokens_filtered_one_word <- test_tokens_filtered %>%
+  filter(word == "law" | word == "status") %>%
+  mutate(phrase = word) %>%
+  select(id, slug, year, court, phrase)
+
+final_tibble <- test_tokens_filtered_one_word
+
+# for words where n = 2
+
+test_tokens_filtered_two_words <- test_tokens_filtered %>%
+  
+  
+
 test_tokens %>%
   filter(word == "supreme")
+
+
 
 
 
@@ -587,6 +616,8 @@ case_rankings <- occurences_case %>%
   arrange(-relative_occurences) %>%
   right_join(corpus_relevant, by = c("id", "slug")) %>%
   select(id, slug, court, total_dictionary_uses, case_total, relative_occurences)
+
+corpus_40s
 
 
 
