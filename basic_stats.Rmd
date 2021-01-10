@@ -61,6 +61,7 @@ readfile <- function(file){
   json_file <- glue("school-segregation-cases/", file, sep = "")
 
   # using rjson package functionality
+  
   json_data <- fromJSON(file=json_file)
   
   # these two methods are optional, but make the data a little uglier
@@ -422,30 +423,85 @@ test_tokens <- corpus_40s %>%
 
 test_tokens$rownumber = 1:nrow(test_tokens)
 
+# filter down the corpus to only words in our phrase list 
+
 test_tokens_filtered <- test_tokens %>%
   right_join(test_phrase_tibble, by = "word")
 
+# final tibble to pass everything in to
+
 final_tibble <- tibble()
+
+# length of all phrases in our test list
+
+test_phrase_lengths <- as.tibble(test_phrases) %>%
+  mutate(length = str_count(value,'\\w+'))
 
 # for words where n = 1
 
-test_tokens_filtered_one_word <- test_tokens_filtered %>%
-  filter(word == "law" | word == "status") %>%
+one_word_phrase_words = test_phrase_lengths %>%
+  filter(length == 1) %>%
+  unnest_tokens(word, value) %>%
+  select(word)
+
+one_word_phrases_filtered <- test_tokens_filtered %>%
+  right_join(one_word_phrase_words, by = "word") %>%
   mutate(phrase = word) %>%
   select(id, slug, year, court, phrase)
 
-final_tibble <- test_tokens_filtered_one_word
+
+final_tibble <- one_word_phrases_filtered
 
 # for words where n = 2
 
-test_tokens_filtered_two_words <- test_tokens_filtered %>%
+two_word_phrase_words <- test_phrase_lengths %>%
+  filter(length == 2) %>%
+  unnest_tokens(word, value) %>%
+  select(word)
+
+test_tokens_filtered_two_words_raw <- test_tokens_filtered %>%
+  right_join(two_word_phrase_words, by = "word") %>%
+  mutate(next_rownum = lead(rownumber)) %>%
+  mutate(prev_rownum = lag(rownumber)) %>%
+  filter(rownumber == (next_rownum - 1) | rownumber == (prev_rownum + 1)) %>%
+  mutate(nextword = lead(word)) %>%
+  mutate(prevword = lag(word)) %>%
+  filter(prevword == nextword)
+
+test_tokens_filtered_two_words_raw = test_tokens_filtered_two_words_raw[-1,]
   
-  
+two_word_phrases_filtered <- test_tokens_filtered_two_words_raw %>%
+  mutate(phrase = paste(word, nextword)) %>%
+  filter(rownumber == (next_rownum - 1)) %>%
+  select(id, slug, year, court, phrase)
 
-test_tokens %>%
-  filter(word == "supreme")
+final_tibble <- rbind(final_tibble, two_word_phrases_filtered)
 
+# for words where n = 3
 
+two_word_phrase_words <- test_phrase_lengths %>%
+  filter(length == 3) %>%
+  unnest_tokens(word, value) %>%
+  select(word)
+
+test_tokens_filtered_three_words_raw <- test_tokens_filtered %>%
+  right_join(two_word_phrase_words, by = "word") %>%
+  mutate(next_rownum = lead(rownumber)) %>%
+  mutate(prev_rownum = lag(rownumber)) %>%
+  mutate(next_next_rownum = lead(rownumber, 2)) %>%
+  mutate(prev_prev_rownum = lag(rownumber, 2)) %>%
+  filter((rownumber == next_rownum - 1 & rownumber == next_next_rownum - 2) |
+         (rownumber == next_rownum - 1 & rownumber == prev_rownum + 1) |
+         (rownumber == prev_rownum + 1 & rownumber == prev_prev_rownum + 2)) %>%
+  mutate(nextword = lead(word)) %>%
+  mutate(next_nextword = lead(word, 2))
+
+three_word_phrases_filtered <- test_tokens_filtered_three_words_raw %>%
+  mutate(phrase = paste(word, nextword, next_nextword)) %>%
+  filter(rownumber == next_rownum - 1 & rownumber == next_next_rownum - 2) %>%
+  select(id, slug, year, court, phrase)
+
+final_tibble <- rbind(final_tibble, three_word_phrases_filtered)
 
 
 
