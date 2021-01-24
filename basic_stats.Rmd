@@ -508,6 +508,89 @@ final_tibble <- rbind(final_tibble, three_word_phrases_filtered)
 ```
 
 
+```{r new_function_actual}
+# applying new methodology to the actual dictionary + corpus we want
+
+phrase_tibble_orig <- read_csv("modified_dictionary.csv") %>%
+  mutate(value = tolower(value))
+
+phrase_tibble <- phrase_tibble_orig %>%
+  unnest_tokens(word, value) %>%
+  anti_join(get_stopwords()) %>%
+  mutate(word = wordStem (word))
+
+phrase_tibble_test <- phrase_tibble_orig
+
+phrase_tibble_test$termnum = 1:nrow(phrase_tibble_test)
+
+phrase_tibble_unnested <- phrase_tibble_test %>%
+  unnest_tokens(word, value) %>%
+  anti_join(get_stopwords()) %>%
+  mutate(word = wordStem (word)) %>%
+  group_by(termnum) %>%
+  summarise_each(funs(paste(., collapse = " "))) %>%
+  mutate(value = word) %>%
+  select(value)
+
+actual_tokens <- corpus_relevant %>%
+  unnest_tokens(word, clean_text) %>%
+  anti_join(get_stopwords()) %>%
+  mutate(word = wordStem (word))
+
+actual_tokens$rownumber = 1:nrow(actual_tokens)
+
+phrase_tibble_deduped <- distinct(phrase_tibble)
+
+# filter down the corpus to only words in our phrase list 
+
+tokens_filtered <- actual_tokens %>%
+  right_join(phrase_tibble_deduped, by = "word")
+
+# final tibble to pass everything in to
+
+final_tibble <- tibble()
+
+# length of all phrases in our test list
+
+phrase_lengths <- phrase_tibble_unnested %>%
+  mutate(length = str_count(value,'\\w+'))
+
+# for words where n = 1
+
+one_word_phrase_words = phrase_lengths %>%
+  filter(length == 1) %>%
+  unnest_tokens(word, value) %>%
+  select(word)
+
+one_word_phrases_filtered <- tokens_filtered %>%
+  right_join(one_word_phrase_words, by = "word") %>%
+  mutate(phrase = word) %>%
+  select(id, slug, year, court, phrase)
+
+final_tibble <- one_word_phrases_filtered
+
+# for words where n = 2
+
+two_word_phrase_phrases <- phrase_lengths %>%
+  filter(length == 2)
+
+for(i in 1:nrow(two_word_phrase_phrases)){
+  phrase_tibble <- tibble(phrase = two_word_phrase_phrases[[1]][i]) %>%
+  unnest_tokens(word, phrase)
+
+  tokens_filtered_two_word <- tokens_filtered %>%
+    right_join(phrase_tibble, by = "word") %>%
+    mutate(nextword = lead(word)) %>%
+    filter(word == phrase_tibble[[1]][1] & nextword == phrase_tibble[[1]][2]) %>%
+    mutate(phrase = paste(word, nextword)) %>%
+    select(id, slug, year, court, phrase)
+
+  final_tibble <- rbind(final_tibble, tokens_filtered_two_word)
+}
+```
+
+
+
 
 ```{r multi_search}
 
