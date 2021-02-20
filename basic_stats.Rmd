@@ -532,6 +532,8 @@ phrase_tibble_unnested <- phrase_tibble_test %>%
   mutate(value = word) %>%
   select(value)
 
+write_csv(phrase_tibble_unnested, "stemmed_dictionary.csv")
+
 actual_tokens <- corpus_relevant %>%
   unnest_tokens(word, clean_text) %>%
   anti_join(get_stopwords()) %>%
@@ -587,6 +589,52 @@ for(i in 1:nrow(two_word_phrase_phrases)){
 
   final_tibble <- rbind(final_tibble, tokens_filtered_two_word)
 }
+
+# for words where n = 3
+
+three_word_phrase_phrases <- phrase_lengths %>%
+  filter(length == 3)
+
+for(i in 1:nrow(three_word_phrase_phrases)){
+  phrase_tibble <- tibble(phrase = three_word_phrase_phrases[[1]][i]) %>%
+    unnest_tokens(word, phrase)
+  
+  tokens_filtered_three_word <- tokens_filtered %>%
+    right_join(phrase_tibble, by = "word") %>%
+    mutate(nextword = lead(word)) %>%
+    mutate(next_nextword = lead(word, 2)) %>%
+    filter(word == phrase_tibble[[1]][1] & nextword == phrase_tibble[[1]][2] & next_nextword == phrase_tibble[[1]][3]) %>%
+    mutate(phrase = paste(word, nextword, next_nextword)) %>%
+    select(id, slug, year, court, phrase)
+  
+  final_tibble <- rbind(final_tibble, tokens_filtered_three_word)
+}
+
+# for words where n = 4
+
+four_word_phrase_phrases <- phrase_lengths %>%
+  filter(length == 4)
+
+for(i in 1:nrow(four_word_phrase_phrases)){
+  phrase_tibble <- tibble(phrase = four_word_phrase_phrases[[1]][i]) %>%
+    unnest_tokens(word, phrase)
+  
+  tokens_filtered_three_word <- tokens_filtered %>%
+    right_join(phrase_tibble, by = "word") %>%
+    mutate(nextword = lead(word)) %>%
+    mutate(next_nextword = lead(word, 2)) %>%
+    mutate(next_next_nextword = lead(word, 3)) %>%
+    filter(word == phrase_tibble[[1]][1] & nextword == phrase_tibble[[1]][2] & next_nextword == phrase_tibble[[1]][3] & next_next_nextword == phrase_tibble[[1]][4]) %>%
+    mutate(phrase = paste(word, nextword, next_nextword, next_next_nextword)) %>%
+    select(id, slug, year, court, phrase)
+  
+  final_tibble <- rbind(final_tibble, tokens_filtered_three_word)
+}
+
+
+write_csv(final_tibble, "final_dictionary_occurences_all.csv")
+write_csv(corpus_relevant, "full_corpus.csv")
+
 ```
 
 

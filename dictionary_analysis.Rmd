@@ -1,0 +1,284 @@
+---
+title: "dictionary_analysis"
+author: "Will Schrepferman"
+date: "1/24/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message=FALSE)
+library("tidyverse")
+library("rjson")
+library("tidyjson")
+library("glue")
+library("gt")
+library("skimr")
+library("openxlsx")
+library("tidytext")
+library("SnowballC")
+library("rvest")
+
+## ADD COLUMN FOR CASE ID
+## PERCENT OF CASES THAT APPEARED IN COURTS (BAG OF COURTS)
+## CHANGE FROM 25 to 50
+
+## SUPPLEMENTARY DATA? GOOGLE NEWS, CONGRESSIONAL RECORD
+## WORDS THAT WE MAY HAVE MISSED
+
+## CREATIVE TOPIC MODELING?
+
+## TOP CASES FROM EACH OF THOSE COURTS
+
+## METADATA - JUDGES ETC
+
+```
+
+## Introduction
+
+Using our originally-pulled corpus of around 7,000 cases, I used Jimmy's dictionary of terms to analyze it both as a complete set and on an individual-term basis.
+
+```{r read_data, include = FALSE}
+
+# All data written to csv's from basic_stats cleaning and analysis
+
+corpus_relevant <- read_csv("full_corpus.csv")
+
+corpus_relevant_modified <- read_csv("full_corpus.csv") %>%
+  mutate(cleaned_text = str_replace_all(tolower(clean_text), "[[:punct:]]", " ")) %>%
+  select(id, slug, year, judges, federal_cite, cleaned_text, doc_length_post_clean, exact_date, resource_uri)
+
+dictionary_original <- read_csv("modified_dictionary.csv") %>%
+  mutate(word = str_replace_all(tolower(value), "[[:punct:]]", " ")) %>%
+  select(word)
+
+dictionary_stemmed <- read_csv("stemmed_dictionary.csv")
+
+dictionary_occurrences <- read_csv("final_dictionary_occurences_all.csv")
+```
+
+Here is the raw dictionary of terms we looked for; for reference, terms were stemmed and lemmatized so that variants of the same term or phrase could be considered as one. Additionally, I removed stop words from all terms (common, non-substantive words) for ease of analysis with the full corpus.
+
+```{r display_terms}
+
+dictionary_original$id <- seq.int(nrow(dictionary_original))
+dictionary_stemmed$id <- seq.int(nrow(dictionary_stemmed))
+
+
+joined_dictionary <- full_join(dictionary_original, dictionary_stemmed, by = "id") %>%
+  select(word, value) %>%
+  gt() %>%
+  tab_header(title = "Original versus Stemmed Dictionary Terms") %>%
+  cols_label(word = "Original Term", value = "Stemmed Term")
+
+joined_dictionary
+```
+
+## Full Dictionary over Time
+
+Next, I wrote a customized script to track the occurrences of variable-length phrases in a corpus (amazingly, this did not appear to exist in any package or Stack Overflow post I could find). I ran it with our dictionary and the full relevant corpus (specified as 1950-1974 per Jimmy's specifications). 
+
+
+First, I did just a raw count of the dictionary occurring as a set over time:
+
+```{r overall_time_series}
+dictionary_occurrences_overall_time_series <- dictionary_occurrences %>%
+  group_by(year) %>%
+  summarise(count = n()) %>%
+  ggplot(aes(x = year, y = count)) +
+  geom_line() +
+  labs(title = "Occurrence of Dictionary Over Time - Raw Count", x = "Year", y = "Usage Count")
+
+
+dictionary_occurrences_overall_time_series
+  
+```
+
+
+However, this raw count doesn't paint the full picture, so I also did a *relative* count of terms. This is simply the percentage of terms in a given year that were terms from our dictionary.
+
+
+```{r relative_time_series}
+
+dictionary_occurrences_raw <- dictionary_occurrences %>%
+  group_by(year) %>%
+  summarise(count_dict = n())
+
+overall_occurrences <- corpus_relevant %>%
+  unnest_tokens(word, clean_text) %>%
+  group_by(year) %>%
+  summarise(count_ovr = n())
+
+dictionary_occurrences_relative_time_series <- dictionary_occurrences_raw %>%
+  right_join(overall_occurrences, by = "year") %>%
+  mutate(rel_occurrences = 100*(count_dict/count_ovr)) %>%
+  ggplot(aes(x = year, y = rel_occurrences)) +
+  geom_line() +
+  labs(title = "Occurrence of Dictionary Over Time - Relative Count", subtitle = "Dictionary Use Counted as Percentage of Total Terms per Year", x = "Year", y = "Dictionary Percentage Use")
+
+dictionary_occurrences_relative_time_series
+
+```
+
+
+## Overall Rankings
+
+Next, I ran some quick rankings. First up is a ranking of terms by overall counts:
+
+```{r term_rankings}
+dictionary_occurrences %>%
+  group_by(phrase) %>%
+  summarise(count = n()) %>%
+  arrange(-count) %>%
+  gt() %>%
+  tab_header(title = "Top Terms") %>%
+  cols_label(phrase = "Term", count = "Total Uses of Dictionary Terms")
+```
+
+Then, the top 25 cases with the highest dictionary term counts:
+
+```{r case_counts}
+dictionary_occurrences %>%
+  group_by(slug) %>%
+  summarise(count = n()) %>%
+  arrange(-count) %>%
+  head(25) %>%
+  gt() %>%
+  tab_header(title = "Top Cases - By Raw Counts") %>%
+  cols_label(slug = "Case", count = "Total Uses in Corpus")
+```
+
+
+Then, the top 25 most frequent cases in terms of dictionary richness (percentage of dictionary words in its overall word count):
+
+```{r case_richness}
+dictionary_cases <- dictionary_occurrences %>%
+  group_by(slug) %>%
+  summarise(count = n())
+
+overall_cases <- corpus_relevant %>%
+  select(slug, doc_length_post_clean)
+
+case_richness <- dictionary_cases %>%
+  right_join(overall_cases, by = "slug") %>%
+  mutate(richness = 100*(count/doc_length_post_clean)) %>%
+  arrange(-richness) %>%
+  select(slug, richness) %>%
+  head(25) %>%
+  gt() %>%
+  tab_header(title = "Top Cases - By Dictionary Richness") %>%
+  cols_label(slug = "Case", richness = "Percent of Dictionary Terms in Case")
+  
+
+case_richness
+  
+```
+
+
+Next, the top 25 courts with the highest dictionary term counts:
+
+```{r court_counts}
+dictionary_occurrences %>%
+  group_by(court) %>%
+  summarise(count = n()) %>%
+  arrange(-count) %>%
+  head(25) %>%
+  gt() %>%
+  tab_header(title = "Top Courts Using Dictionary Terms - By Raw Counts") %>%
+  cols_label(court = "Court", count = "Total Uses of Dictionary Terms")
+```
+
+
+And the top 25 courts in terms of dictionary richness (percentage of dictionary words across all of a court's text):
+
+```{r court_richness}
+dictionary_courts <- dictionary_occurrences %>%
+  group_by(court) %>%
+  summarise(count_dict = n())
+
+overall_courts <- corpus_relevant %>%
+  select(court, doc_length_post_clean) %>%
+  group_by(court) %>%
+  summarise(count = sum(doc_length_post_clean))
+
+court_richness <- dictionary_courts %>%
+  right_join(overall_courts, by = "court") %>%
+  mutate(richness = 100*(count_dict/count)) %>%
+  arrange(-richness) %>%
+  select(court, richness) %>%
+  head(25) %>%
+  gt() %>%
+  tab_header(title = "Top Courts - By Dictionary Richness") %>%
+  cols_label(court = "Court", richness = "Percent of Dictionary Terms for all Cases")
+
+court_richness
+```
+
+
+## Individual Term Analyses
+
+And finally, here are graphs for each individual word - both raw and relative counts.
+
+```{r individual_terms}
+zeros_table <- tibble(year = (1950:1974))
+
+raw_count_graph <- function(term){
+  dictionary_occurences_filt <- dictionary_occurrences %>%
+    filter(phrase == term)
+  
+  pull_sum <- dictionary_occurences_filt %>%
+    group_by(year) %>%
+    summarise(count = n()) %>%
+    right_join(zeros_table, by = "year") %>%
+    mutate(count = replace_na(count, 0)) %>%
+    arrange(year)
+  
+  raw_plot <- pull_sum %>%
+    ggplot(aes(x = year, y = count)) +
+    geom_line() +
+    labs(title = paste("Occurrence of Term '", term, "' Over Time - Raw Count"), x = "Year", y = "Usage Count")
+  
+  print(raw_plot)
+}
+
+rel_count_graph <- function(term){
+  dictionary_occurences_filt <- dictionary_occurrences %>%
+    filter(phrase == term)
+  
+  overall_occurrences <- corpus_relevant %>%
+    unnest_tokens(word, clean_text) %>%
+    group_by(year) %>%
+    summarise(count_ovr = n())
+  
+  pull_sum <- dictionary_occurences_filt %>%
+    group_by(year) %>%
+    summarise(count = n()) %>%
+    right_join(overall_occurrences, by = "year") %>%
+    arrange(year) %>%
+    mutate(percent_occurr = 100*(count/count_ovr)) %>%
+    select(year, percent_occurr)
+    
+  
+  raw_plot <- pull_sum %>%
+    ggplot(aes(x = year, y = percent_occurr)) +
+    geom_line() +
+    labs(title = paste("Occurrence of Term '", term, "' Over Time - Relative Count"), subtitle = "As Percentage of All Words in a Given Year", x = "Year", y = "Usage Percentage")
+  
+  print(raw_plot)
+}
+
+
+for(i in 1:nrow(dictionary_stemmed)){
+  raw_count_graph(dictionary_stemmed[[1]][i])
+  rel_count_graph(dictionary_stemmed[[1]][i])
+}
+
+```
+
+
+
+
+
+
+
+
+
