@@ -1,0 +1,131 @@
+---
+title: "topic_modeling"
+author: "Will Schrepferman"
+date: "2/23/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library("tidyverse")
+library("rjson")
+library("tidyjson")
+library("glue")
+library("gt")
+library("skimr")
+library("openxlsx")
+library("tidytext")
+library("SnowballC")
+library("rvest")
+library("janitor")
+library("ggplot2")
+library("tidytext")
+library("tidyr")
+library("topicmodels")
+library("keras")
+library("janeaustenr")
+library("tokenizers")
+```
+
+## R Markdown
+
+```{r read_data, include = FALSE}
+corpus_relevant <- read_csv("full_corpus.csv")
+
+corpus_relevant_modified <- read_csv("full_corpus.csv") %>%
+  mutate(cleaned_text = str_replace_all(tolower(clean_text), "[[:punct:]]", " ")) %>%
+  select(id, slug, year, judges, federal_cite, cleaned_text, doc_length_post_clean, exact_date, resource_uri)
+
+dictionary_original <- read_csv("modified_dictionary.csv") %>%
+  mutate(word = str_replace_all(tolower(value), "[[:punct:]]", " ")) %>%
+  select(word)
+
+dictionary_stemmed <- read_csv("stemmed_dictionary.csv")
+
+dictionary_occurrences <- read_csv("final_dictionary_occurences_all.csv")
+```
+
+```{r tm}
+
+dtm_input <- corpus_relevant_modified %>%
+  unnest_tokens(word, cleaned_text) %>%
+  mutate(term = wordStem(word)) %>%
+  anti_join(stop_words) %>%
+  group_by(id, term) %>%
+  summarise(count = n()) %>%
+  mutate(document = id) %>%
+  select(document, term, count)
+
+# create document-term matrix
+
+speech_dtm <- dtm_input %>%
+  cast_dtm(document, term, count)
+
+# create Latent Dirichlet Allocation model w/ 3 topics
+
+speech_lda <- LDA(speech_dtm, k = 10)
+
+speech_lda_tidy <- tidy(speech_lda, matrix = "beta") %>%
+  arrange(desc(beta))
+
+# group top 12 words for each topic
+
+speech_top_terms <- speech_lda_tidy %>%
+  group_by(topic) %>%
+  ungroup() %>%
+  arrange(topic, -beta)
+
+
+speech_top_50_terms <- speech_lda_tidy %>%
+  group_by(topic) %>%
+  ungroup() %>%
+  head(500) %>%
+  arrange(topic, -beta)
+
+common_words <- tibble(term = character())
+
+# plot top terms
+
+speech_top_terms_graph <- speech_top_terms %>%
+  mutate(term = reorder_within(term, beta, topic)) %>%
+  ggplot(aes(term, beta, fill = factor(topic))) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~ topic, scales = "free") +
+  coord_flip() +
+  scale_x_reordered()
+
+speech_top_terms_graph
+
+speech_top_terms
+
+# take 50-word topics
+# calculate percentage of our dictionary in each one
+# see if any stand out
+# use similar dictionary analysis of code to track prevalence of each topic over time
+
+dictionary_single_words <- dictionary_original %>%
+  mutate(length = sapply(strsplit(word, " "), length)) %>%
+  filter(length == 1) %>%
+  mutate(term = wordStem(word)) %>%
+  select(term)
+
+dictionary_single_list <- as.list(dictionary_single_words)
+
+speech_top_terms <- speech_top_terms %>%
+  mutate(is_dictionary_word = (is.element(term, dictionary_single_words[[1]])))
+
+speech_top_terms %>%
+  filter(is_dictionary_word == TRUE) %>%
+  group_by(topic) %>%
+  summarize(count = mean(beta)) %>%
+  arrange(-count)
+
+
+
+speech_top_50_terms_wider <- speech_top_50_terms %>%
+  pivot_wider(names_from = topic, values_from = beta)
+  
+
+
+```
+
