@@ -123,9 +123,114 @@ speech_top_terms %>%
 
 
 speech_top_50_terms_wider <- speech_top_50_terms %>%
-  pivot_wider(names_from = topic, values_from = beta)
+  pivot_wider(names_from = topic, names_prefix = "t", values_from = beta)
+
+
+tm_time_series <- corpus_relevant_modified %>%
+  unnest_tokens(word, cleaned_text) %>%
+  mutate(term = wordStem(word)) %>%
+  anti_join(stop_words) %>%
+  select(year, term)
+
+tm_time_series_summ <- tm_time_series %>%
+  full_join(speech_top_50_terms_wider, by = "term") %>%
+  group_by(year) %>%
+  summarize(t1_avg = mean(t1, na.rm = TRUE), t2_avg = mean(t2, na.rm = TRUE), t3_avg = mean(t3, na.rm = TRUE), 
+            t4_avg = mean(t4, na.rm = TRUE), t5_avg = mean(t5, na.rm = TRUE), t6_avg = mean(t6, na.rm = TRUE), 
+            t7_avg = mean(t7, na.rm = TRUE), t8_avg = mean(t8, na.rm = TRUE), t9_avg = mean(t9, na.rm = TRUE),
+            t10_avg = mean(t10, na.rm = TRUE))
+
+tm_time_series_summ %>% 
+  ggplot(aes(year)) +
+  geom_line(aes(y = t1_avg, colour = "t1_avg")) + 
+  geom_line(aes(y = t2_avg, colour = "t2_avg")) +
+  geom_line(aes(y = t3_avg, colour = "t3_avg")) + 
+  geom_line(aes(y = t4_avg, colour = "t4_avg")) + 
+  geom_line(aes(y = t5_avg, colour = "t5_avg")) + 
+  geom_line(aes(y = t6_avg, colour = "t6_avg")) + 
+  geom_line(aes(y = t7_avg, colour = "t7_avg")) + 
+  geom_line(aes(y = t8_avg, colour = "t8_avg")) + 
+  geom_line(aes(y = t9_avg, colour = "t9_avg")) + 
+  geom_line(aes(y = t10_avg, colour = "t10_avg"))
   
 
+
+
+speech_top_50_terms_wider_raw <- speech_top_50_terms %>%
+  pivot_wider(names_from = topic, names_prefix = "t", values_from = topic)
+
+tm_time_series_raw <- corpus_relevant_modified %>%
+  unnest_tokens(word, cleaned_text) %>%
+  mutate(term = wordStem(word)) %>%
+  anti_join(stop_words) %>%
+  select(year, term)
+
+tm_time_series_summ_raw <- tm_time_series_raw %>%
+  full_join(speech_top_50_terms_wider_raw, by = "term") %>%
+  mutate(t1r = t1/t1) %>%
+  mutate(t2r = t2/t2) %>%
+  mutate(t3r = t3/t3) %>%
+  mutate(t4r = t4/t4) %>%
+  mutate(t5r = t5/t5) %>%
+  mutate(t6r = t6/t6) %>%
+  mutate(t7r = t7/t7) %>%
+  mutate(t8r = t8/t8) %>%
+  mutate(t9r = t9/t9) %>%
+  mutate(t10r = t10/t10) %>%
+  select(year, t1r, t2r, t3r, t4r, t5r, t6r, t7r, t8r, t9r, t10r) %>%
+  group_by(year) %>%
+  summarize(t1_tot = sum(t1r, na.rm = TRUE), t2_tot = sum(t2r, na.rm = TRUE), t3_tot = sum(t3r, na.rm = TRUE), 
+            t4_tot = sum(t4r, na.rm = TRUE), t5_tot = sum(t5r, na.rm = TRUE), t6_tot = sum(t6r, na.rm = TRUE), 
+            t7_tot = sum(t7r, na.rm = TRUE), t8_tot = sum(t8r, na.rm = TRUE), t9_tot = sum(t9r, na.rm = TRUE),
+            t10_tot = sum(t10r, na.rm = TRUE))
+
+tm_time_series_summ_raw %>%
+  ggplot(aes(year)) +
+  geom_line(aes(y = t1_tot, colour = "t1_tot")) + 
+  geom_line(aes(y = t2_tot, colour = "t2_tot")) +
+  geom_line(aes(y = t3_tot, colour = "t3_tot")) + 
+  geom_line(aes(y = t4_tot, colour = "t4_tot")) + 
+  geom_line(aes(y = t5_tot, colour = "t5_tot")) + 
+  geom_line(aes(y = t6_tot, colour = "t6_tot")) + 
+  geom_line(aes(y = t7_tot, colour = "t7_tot")) + 
+  geom_line(aes(y = t8_tot, colour = "t8_tot")) + 
+  geom_line(aes(y = t9_tot, colour = "t9_tot")) + 
+  geom_line(aes(y = t10_tot, colour = "t10_tot")) +
+  labs(title = "topic prevalency over time", y = "prevalency", x = "year")
+
+
+overall_occurrences <- corpus_relevant %>%
+  unnest_tokens(word, clean_text) %>%
+  group_by(year) %>%
+  summarise(count_ovr = n())
+
+tm_time_series_summ_rel <- tm_time_series_summ_raw %>%
+  right_join(overall_occurrences, by = "year") %>%
+  mutate(t1rel = t1_tot/count_ovr) %>%
+  mutate(t2rel = t2_tot/count_ovr) %>%
+  mutate(t3rel = t3_tot/count_ovr) %>%
+  mutate(t4rel = t4_tot/count_ovr) %>%
+  mutate(t5rel = t5_tot/count_ovr) %>%
+  mutate(t6rel = t6_tot/count_ovr) %>%
+  mutate(t7rel = t7_tot/count_ovr) %>%
+  mutate(t8rel = t8_tot/count_ovr) %>%
+  mutate(t9rel = t9_tot/count_ovr) %>%
+  mutate(t10rel = t10_tot/count_ovr) %>%
+  select(year, t1rel, t2rel, t3rel, t4rel, t5rel, t6rel, t7rel, t8rel, t9rel, t10rel)
+
+tm_time_series_summ_rel %>%
+  ggplot(aes(year)) +
+  geom_line(aes(y = t1rel, colour = "t1rel")) + 
+  geom_line(aes(y = t2rel, colour = "t2rel")) +
+  geom_line(aes(y = t3rel, colour = "t3rel")) + 
+  geom_line(aes(y = t4rel, colour = "t4rel")) + 
+  geom_line(aes(y = t5rel, colour = "t5rel")) + 
+  geom_line(aes(y = t6rel, colour = "t6rel")) + 
+  geom_line(aes(y = t7rel, colour = "t7rel")) + 
+  geom_line(aes(y = t8rel, colour = "t8rel")) + 
+  geom_line(aes(y = t9rel, colour = "t9rel")) + 
+  geom_line(aes(y = t10rel, colour = "t10rel")) +
+  labs(title = "topic prevalency over time", y = "prevalency", x = "year")
 
 ```
 
