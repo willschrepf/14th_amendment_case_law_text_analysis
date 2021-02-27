@@ -232,5 +232,22 @@ tm_time_series_summ_rel %>%
   geom_line(aes(y = t10rel, colour = "t10rel")) +
   labs(title = "topic prevalency over time", y = "prevalency", x = "year")
 
+
+
+tm_time_doc <- corpus_relevant_modified %>%
+  unnest_tokens(word, cleaned_text) %>%
+  mutate(term = wordStem(word)) %>%
+  anti_join(stop_words) %>%
+  select(id, slug, term)
+
+document_topic_richness <- tm_time_doc %>%
+  full_join(speech_top_50_terms_wider, by = "term") %>%
+  group_by(id) %>%
+  summarize(t1_sum = sum(t1, na.rm = TRUE), t2_sum = sum(t2, na.rm = TRUE), t3_sum = sum(t3, na.rm = TRUE), 
+            t4_sum = sum(t4, na.rm = TRUE), t5_sum = sum(t5, na.rm = TRUE), t6_sum = sum(t6, na.rm = TRUE), 
+            t7_sum = sum(t7, na.rm = TRUE), t8_sum = sum(t8, na.rm = TRUE), t9_sum = sum(t9, na.rm = TRUE),
+            t10_sum = sum(t10, na.rm = TRUE), slug = min(slug)) %>%
+  select(id, slug, t1_sum, t2_sum, t3_sum, t4_sum, t5_sum, t6_sum, t7_sum, t8_sum, t9_sum, t10_sum)
+
 ```
 
