@@ -1,0 +1,71 @@
+---
+title: "sentiment_analysis"
+author: "Will Schrepferman"
+date: "2/27/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library("tidyverse")
+library("rjson")
+library("tidyjson")
+library("glue")
+library("gt")
+library("skimr")
+library("openxlsx")
+library("tidytext")
+library("SnowballC")
+library("rvest")
+library("janitor")
+library("ggplot2")
+library("tidytext")
+library("tidyr")
+library("topicmodels")
+library("keras")
+library("janeaustenr")
+library("tokenizers")
+```
+
+```{r}
+corpus_relevant_modified <- read_csv("full_corpus.csv") %>%
+  mutate(cleaned_text = str_replace_all(tolower(clean_text), "[[:punct:]]", " ")) %>%
+  select(id, slug, year, judges, federal_cite, cleaned_text, doc_length_post_clean, exact_date, resource_uri)
+
+cleaned_dictionary <- corpus_relevant_modified %>%
+  unnest_tokens(word, cleaned_text) %>%
+  mutate(term = wordStem(word)) %>%
+  anti_join(stop_words)
+
+get_sentiment <- function(tibble){
+  num_words <- tibble %>%
+      count() %>%
+      pull()
+  
+  sentiment <- tibble %>%
+  
+  select(word) %>%
+  
+  inner_join(get_sentiments("bing")) %>%
+      
+  # count the number of positive & negative words
+  
+  count(sentiment) %>%
+  
+  # make data wide rather than narrow
+  
+  spread(sentiment, n, fill = 0) %>%
+  
+  # number of positive words minus number of negative words divided by total words
+  
+  mutate(sentiment = ((positive - negative)/as.double(num_words)))
+  
+  return(sentiment)
+  
+}
+
+
+get_sentiment(cleaned_dictionary %>% select(word))
+
+```
+
