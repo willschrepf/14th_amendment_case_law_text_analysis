@@ -37,6 +37,8 @@ cleaned_dictionary <- corpus_relevant_modified %>%
   mutate(term = wordStem(word)) %>%
   anti_join(stop_words)
 
+
+
 get_sentiment <- function(tibble){
   num_words <- tibble %>%
       count() %>%
@@ -48,24 +50,108 @@ get_sentiment <- function(tibble){
   
   inner_join(get_sentiments("bing")) %>%
       
-  # count the number of positive & negative words
-  
-  count(sentiment) %>%
-  
-  # make data wide rather than narrow
-  
-  spread(sentiment, n, fill = 0) %>%
-  
-  # number of positive words minus number of negative words divided by total words
-  
-  mutate(sentiment = ((positive - negative)/as.double(num_words)))
+    # count the number of positive & negative words
+    
+    count(sentiment) %>%
+    
+    # make data wide rather than narrow
+    
+    spread(sentiment, n, fill = 0) %>%
+    
+    # number of positive words minus number of negative words divided by total words
+    
+    mutate(sentiment = ((positive - negative)/as.double(num_words)))
   
   return(sentiment)
   
 }
 
 
-get_sentiment(cleaned_dictionary %>% select(word))
+surrounding_words1 <- cleaned_dictionary %>%
+  anti_join(stop_words)
+
+surrounding_words1$rownum <- as.numeric(rownames(surrounding_words1)) 
+
+surrounding_words <- surrounding_words1 %>%
+  mutate(wn1 = lag(word, 1)) %>%
+  mutate(wn2 = lag(word, 2)) %>%
+  mutate(wn3 = lag(word, 3)) %>%
+  mutate(wn4 = lag(word, 4)) %>%
+  mutate(wn5 = lag(word, 5)) %>%
+  mutate(wn6 = lag(word, 6)) %>%
+  mutate(wn7 = lag(word, 7)) %>%
+  mutate(wn8 = lag(word, 8)) %>%
+  mutate(wn9 = lag(word, 9)) %>%
+  mutate(wn10 = lag(word, 10)) %>%
+  mutate(w1 = lead(word, 1)) %>%
+  mutate(w2 = lead(word, 2)) %>%
+  mutate(w3 = lead(word, 3)) %>%
+  mutate(w4 = lead(word, 4)) %>%
+  mutate(w5 = lead(word, 5)) %>%
+  mutate(w6 = lead(word, 6)) %>%
+  mutate(w7 = lead(word, 7)) %>%
+  mutate(w8 = lead(word, 8)) %>%
+  mutate(w9 = lead(word, 9)) %>%
+  mutate(w10 = lead(word, 10)) %>%
+  mutate(surrounding_raw = paste(wn10, wn9, wn8, wn7, wn6, wn5, wn4, wn3, wn2, wn1, w1, w2, w3, w4, w5, w6, w7, w8, w9, w10)) %>%
+  select(-wn1, -wn2, -wn3, -wn4, -wn5, -wn6, -wn7, -wn8, -wn9, -wn10, -w1, -w2, -w3, -w4, -w5, w6, -w7, -w8, -w9, -w10)
+
+surrounding_words_filt <- surrounding_words %>%
+  filter(term == "segreg")
+
+l_s <- surrounding_words_filt$rownum
+
+surrounding_sentiments <- tibble(rownum = 0, context_sent = 0)
+
+for (i in l_s){
+  word_instance <- surrounding_words$word[i]
+  surrounding_list = strsplit(surrounding_words$surrounding_raw[i], '\\s+')[[1]]
+  surrounding_tibble = as_tibble_col(surrounding_list, column_name = "word")
+  surrounding_tibble1 <- surrounding_tibble %>%
+  
+    select(word) %>%
+    
+    add_row(word = "2-faces") %>%
+    
+    add_row(word = "zippy") %>%
+    
+    inner_join(get_sentiments("bing")) %>%
+        
+    # count the number of positive & negative words
+    
+    count(sentiment) %>%
+    
+    # make data wide rather than narrow
+    
+    spread(sentiment, n, fill = 0) %>%
+  
+    mutate(sentiment = (positive - negative)/as.double(20))
+  
+  s_val <- surrounding_tibble1$sentiment
+  
+  surrounding_sentiments <- surrounding_sentiments%>%
+    add_row(rownum = i, context_sent = s_val)
+  
+}
+
+
+full_context_sentiments <- surrounding_words_filt %>%
+  left_join(surrounding_sentiments, by = "rownum")
+
+  
+plot <- full_context_sentiments %>%
+  group_by(year) %>%
+  summarize(overall_sent = mean(context_sent, na.rm = TRUE)) %>%
+  ggplot(aes(x = year, y = overall_sent)) +
+  geom_line() +
+  geom_point(size=1) +
+  labs(title = "Sentiment Surrounding Segregation Over Time", subtitle = "Using Sentiment Analysis on Surrounding Word Context of the Term 'segreg'", y = "Average Sentiment", x = "Year") +
+  geom_smooth(method = "lm")
+
+
+full_context_sentiments %>%
+  group_by(year) %>%
+  summarize(sum = sum(context_sent), count = n(), other_avg = sum/count, avg = mean(context_sent, na.rm = TRUE))
 
 ```
 
