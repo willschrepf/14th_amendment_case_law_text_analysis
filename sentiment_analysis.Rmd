@@ -25,6 +25,7 @@ library("topicmodels")
 library("keras")
 library("janeaustenr")
 library("tokenizers")
+library('forcats')
 ```
 
 ```{r}
@@ -37,6 +38,7 @@ cleaned_dictionary <- corpus_relevant_modified %>%
   mutate(term = wordStem(word)) %>%
   anti_join(stop_words)
 
+# function to get sentiment of a given list of words
 
 
 get_sentiment <- function(tibble){
@@ -65,6 +67,8 @@ get_sentiment <- function(tibble){
   return(sentiment)
   
 }
+
+# generate variables for words surrounding the term 'segreg'
 
 
 surrounding_words1 <- cleaned_dictionary %>%
@@ -103,6 +107,8 @@ l_s <- surrounding_words_filt$rownum
 
 surrounding_sentiments <- tibble(rownum = 0, context_sent = 0)
 
+# identify the sentiment of each set of surrounding words and put into surrounding_sentiments tibble
+
 for (i in l_s){
   word_instance <- surrounding_words$word[i]
   surrounding_list = strsplit(surrounding_words$surrounding_raw[i], '\\s+')[[1]]
@@ -138,6 +144,7 @@ for (i in l_s){
 full_context_sentiments <- surrounding_words_filt %>%
   left_join(surrounding_sentiments, by = "rownum")
 
+# plot full surrounding sentiments
   
 plot <- full_context_sentiments %>%
   group_by(year) %>%
@@ -148,10 +155,80 @@ plot <- full_context_sentiments %>%
   labs(title = "Sentiment Surrounding Segregation Over Time", subtitle = "Using Sentiment Analysis on Surrounding Word Context of the Term 'segreg'", y = "Average Sentiment", x = "Year") +
   geom_smooth(method = "lm")
 
+# testing data quality
 
 full_context_sentiments %>%
   group_by(year) %>%
   summarize(sum = sum(context_sent), count = n(), other_avg = sum/count, avg = mean(context_sent, na.rm = TRUE))
 
+# now, filtering for top 10 adjectives to generate heat maps
+
+cleaned_dictionary_adj <- cleaned_dictionary %>%
+  inner_join(parts_of_speech) %>%
+  filter(pos == "Adjective") %>%
+  inner_join(get_sentiments("bing"))
+
+top10_pos_adj <- cleaned_dictionary_adj %>%
+  group_by(word, sentiment) %>%
+  summarize(count = n()) %>%
+  filter(sentiment == "positive") %>%
+  filter(word != "supreme") %>%
+  arrange(-count) %>%
+  head(10)
+
+top10_neg_adj <- cleaned_dictionary_adj %>%
+  group_by(word, sentiment) %>%
+  summarize(count = n()) %>%
+  filter(sentiment == "negative") %>%
+  filter(word != "supreme") %>%
+  arrange(-count) %>%
+  head(10)
+
+top_10_pos_adj_yearly <- cleaned_dictionary_adj %>%
+  filter(word %in% top10_pos_adj$word) %>%
+  group_by(word, year) %>%
+  summarise(n = n()) %>%
+  mutate(percentage = n/sum(n)) %>%
+  ungroup() %>%
+  add_row(word = "affirmative", year = 1956, n = 0, percentage = 0) %>%
+  add_row(word = "significant", year = 1960, n = 0, percentage = 0) %>%
+  arrange(word, year)
+
+
+
+pos_plot <- top_10_pos_adj_yearly %>%
+  ggplot(aes(x = year, y = percentage, fill = word)) +
+  geom_area(position = "fill") + 
+  labs(title = "Top Ten Positive Adjectives in Corpus", subtitle = "As a Percentage Over Time 1950-1974", x = "Year", y = "Percentage")
+
+top_10_neg_adj_yearly <- cleaned_dictionary_adj %>%
+  filter(word %in% top10_neg_adj$word) %>%
+  group_by(word, year) %>%
+  summarise(n = n()) %>%
+  mutate(percentage = n/sum(n)) %>%
+  ungroup() %>%
+  add_row(word = "arbitrary", year = 1950, n = 0, percentage = 0) %>%
+  add_row(word = "arbitrary", year = 1956, n = 0, percentage = 0) %>%
+  add_row(word = "arbitrary", year = 1959, n = 0, percentage = 0) %>%
+  add_row(word = "confined", year = 1954, n = 0, percentage = 0) %>%
+  add_row(word = "difficult", year = 1954, n = 0, percentage = 0) %>%
+  add_row(word = "discriminatory", year = 1950, n = 0, percentage = 0) %>%
+  add_row(word = "discriminatory", year = 1954, n = 0, percentage = 0) %>%
+  add_row(word = "guilty", year = 1954, n = 0, percentage = 0) %>%
+  add_row(word = "unable", year = 1954, n = 0, percentage = 0) %>%
+  add_row(word = "unconstitutional", year = 1953, n = 0, percentage = 0) %>%
+  arrange(word, year)
+
+neg_plot <- top_10_neg_adj_yearly %>%
+  ggplot(aes(x = year, y = percentage, fill = word)) +
+  geom_area(position = "fill") +
+  labs(title = "Top Ten Negative Adjectives in Corpus", subtitle = "As a Percentage Over Time 1950-1974", x = "Year", y = "Percentage")
+  
+# confined 1954 0 0
+# difficult 1954 0 0
+# discriminatory 1954 0 0
+# guilty 1954 0 0 
+# unable 1954 0 0
+# unconstitutional 1953 0 0
 ```
 

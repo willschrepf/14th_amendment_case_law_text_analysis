@@ -75,6 +75,12 @@ speech_top_terms <- speech_lda_tidy %>%
   ungroup() %>%
   arrange(topic, -beta)
 
+speech_top_15_terms <- speech_lda_tidy %>%
+  group_by(topic) %>%
+  ungroup() %>%
+  head(15) %>%
+  arrange(topic, -beta)
+
 
 speech_top_50_terms <- speech_lda_tidy %>%
   group_by(topic) %>%
@@ -86,7 +92,7 @@ common_words <- tibble(term = character())
 
 # plot top terms
 
-speech_top_terms_graph <- speech_top_terms %>%
+speech_top_terms_graph <- speech_top_15_terms %>%
   mutate(term = reorder_within(term, beta, topic)) %>%
   ggplot(aes(term, beta, fill = factor(topic))) +
   geom_col(show.legend = FALSE) +
