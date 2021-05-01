@@ -639,6 +639,73 @@ write_csv(corpus_relevant, "full_corpus.csv")
 
 
 
+```{r intent_dictionary_creation}
+phrase_tibble_orig <- read_csv("intent_dictionary.csv") %>%
+  mutate(value = tolower(value))
+
+phrase_tibble <- phrase_tibble_orig %>%
+  unnest_tokens(word, value) %>%
+  anti_join(get_stopwords()) %>%
+  mutate(word = wordStem (word))
+
+phrase_tibble_test <- phrase_tibble_orig
+
+phrase_tibble_test$termnum = 1:nrow(phrase_tibble_test)
+
+phrase_tibble_unnested <- phrase_tibble_test %>%
+  unnest_tokens(word, value) %>%
+  anti_join(get_stopwords()) %>%
+  mutate(word = wordStem (word)) %>%
+  group_by(termnum) %>%
+  summarise_each(funs(paste(., collapse = " "))) %>%
+  mutate(value = word) %>%
+  select(value)
+
+write_csv(phrase_tibble_unnested, "stemmed_intent_dictionary.csv")
+
+actual_tokens <- corpus_relevant %>%
+  unnest_tokens(word, clean_text) %>%
+  anti_join(get_stopwords()) %>%
+  mutate(word = wordStem (word))
+
+actual_tokens$rownumber = 1:nrow(actual_tokens)
+
+phrase_tibble_deduped <- distinct(phrase_tibble)
+
+# filter down the corpus to only words in our phrase list 
+
+tokens_filtered <- actual_tokens %>%
+  right_join(phrase_tibble_deduped, by = "word")
+
+# final tibble to pass everything in to
+
+final_tibble <- tibble()
+
+# length of all phrases in our test list
+
+phrase_lengths <- phrase_tibble_unnested %>%
+  mutate(length = str_count(value,'\\w+'))
+
+# for words where n = 1
+
+one_word_phrase_words = phrase_lengths %>%
+  filter(length == 1) %>%
+  unnest_tokens(word, value) %>%
+  select(word)
+
+one_word_phrases_filtered <- tokens_filtered %>%
+  right_join(one_word_phrase_words, by = "word") %>%
+  mutate(phrase = word) %>%
+  select(id, slug, year, court, phrase)
+
+final_tibble <- one_word_phrases_filtered
+
+
+write_csv(final_tibble, "final_intent_dictionary_occurences_all.csv")
+
+```
+
+
 
 ```{r multi_search}
 

@@ -75,11 +75,75 @@ speech_top_terms <- speech_lda_tidy %>%
   ungroup() %>%
   arrange(topic, -beta)
 
+
 speech_top_15_terms <- speech_lda_tidy %>%
   group_by(topic) %>%
-  ungroup() %>%
-  head(15) %>%
-  arrange(topic, -beta)
+  filter(topic == 1) %>%
+  head(10) %>%
+  arrange(-beta)
+
+topic2_top <- speech_lda_tidy %>%
+  group_by(topic) %>%
+  filter(topic == 2) %>%
+  head(10) %>%
+  arrange(-beta)
+speech_top_15_terms <- rbind(speech_top_15_terms, topic2_top)
+
+topic3_top <- speech_lda_tidy %>%
+  group_by(topic) %>%
+  filter(topic == 3) %>%
+  head(10) %>%
+  arrange(-beta)
+speech_top_15_terms <- rbind(speech_top_15_terms, topic3_top)
+
+topic4_top <- speech_lda_tidy %>%
+  group_by(topic) %>%
+  filter(topic == 4) %>%
+  head(10) %>%
+  arrange(-beta)
+speech_top_15_terms <- rbind(speech_top_15_terms, topic4_top)
+
+topic5_top <- speech_lda_tidy %>%
+  group_by(topic) %>%
+  filter(topic == 5) %>%
+  head(10) %>%
+  arrange(-beta)
+speech_top_15_terms <- rbind(speech_top_15_terms, topic5_top)
+
+topic6_top <- speech_lda_tidy %>%
+  group_by(topic) %>%
+  filter(topic == 6) %>%
+  head(10) %>%
+  arrange(-beta)
+speech_top_15_terms <- rbind(speech_top_15_terms, topic6_top)
+
+topic7_top <- speech_lda_tidy %>%
+  group_by(topic) %>%
+  filter(topic == 7) %>%
+  head(10) %>%
+  arrange(-beta)
+speech_top_15_terms <- rbind(speech_top_15_terms, topic7_top)
+
+topic8_top <- speech_lda_tidy %>%
+  group_by(topic) %>%
+  filter(topic == 8) %>%
+  head(10) %>%
+  arrange(-beta)
+speech_top_15_terms <- rbind(speech_top_15_terms, topic8_top)
+
+topic9_top <- speech_lda_tidy %>%
+  group_by(topic) %>%
+  filter(topic == 9) %>%
+  head(10) %>%
+  arrange(-beta)
+speech_top_15_terms <- rbind(speech_top_15_terms, topic9_top)
+
+topic10_top <- speech_lda_tidy %>%
+  group_by(topic) %>%
+  filter(topic == 10) %>%
+  head(10) %>%
+  arrange(-beta)
+speech_top_15_terms <- rbind(speech_top_15_terms, topic10_top)
 
 
 speech_top_50_terms <- speech_lda_tidy %>%
