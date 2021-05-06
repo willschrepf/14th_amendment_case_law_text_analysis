@@ -48,7 +48,7 @@ corpus_relevant <- read_csv("full_corpus.csv")
 
 corpus_relevant_modified <- read_csv("full_corpus.csv") %>%
   mutate(cleaned_text = str_replace_all(tolower(clean_text), "[[:punct:]]", " ")) %>%
-  select(id, slug, year, judges, federal_cite, cleaned_text, doc_length_post_clean, exact_date, resource_uri)
+  select(id, slug, year, judges, federal_cite, cleaned_text, doc_length_post_clean, exact_date, resource_uri, federal_cite)
 
 dictionary_original <- read_csv("modified_dictionary.csv") %>%
   mutate(word = str_replace_all(tolower(value), "[[:punct:]]", " ")) %>%
@@ -56,7 +56,8 @@ dictionary_original <- read_csv("modified_dictionary.csv") %>%
 
 dictionary_stemmed <- read_csv("stemmed_dictionary.csv")
 
-dictionary_occurrences <- read_csv("final_dictionary_occurences_all.csv")
+dictionary_occurrences <- read_csv("final_dictionary_occurences_all.csv") %>%
+  left_join(corpus_relevant_modified, by = c("id", "slug", "year"))
 ```
 
 Here is the raw dictionary of terms we looked for; for reference, terms were stemmed and lemmatized so that variants of the same term or phrase could be considered as one. Additionally, I removed stop words from all terms (common, non-substantive words) for ease of analysis with the full corpus.
@@ -142,15 +143,15 @@ Then, the top 50 cases with the highest dictionary term counts:
 
 ```{r case_counts}
 dictionary_occurrences %>%
-  select(slug, id) %>%
+  select(slug, id, federal_cite) %>%
   group_by(id) %>%
-  summarise(count = n(), slug = max(slug)) %>%
-  select(slug, id, count) %>%
+  summarise(count = n(), slug = max(slug), federal_cite = max(federal_cite)) %>%
+  select(slug, id, federal_cite, count) %>%
   arrange(-count) %>%
   head(50) %>%
   gt() %>%
   tab_header(title = "Top Cases - By Raw Counts") %>%
-  cols_label(id = "Case ID", slug = "Case", count = "Total Uses of Dictionary Terms")
+  cols_label(id = "Case ID", slug = "Case", federal_cite = "Federal Citation", count = "Total Uses of Dictionary Terms")
 ```
 
 
@@ -159,8 +160,8 @@ Then, the top 50 most frequent cases in terms of dictionary richness (percentage
 ```{r case_richness}
 dictionary_cases <- dictionary_occurrences %>%
   group_by(id) %>%
-  summarise(count = n(), slug = max(slug)) %>%
-  select(slug, id, count)
+  summarise(count = n(), slug = max(slug), federal_cite = max(federal_cite)) %>%
+  select(slug, id, federal_cite, count)
 
 overall_cases <- corpus_relevant %>%
   select(slug, id, doc_length_post_clean)
@@ -170,11 +171,11 @@ case_richness <- dictionary_cases %>%
   mutate(slug = slug.x) %>%
   mutate(richness = 100*(count/doc_length_post_clean)) %>%
   arrange(-richness) %>%
-  select(slug, id, richness) %>%
+  select(slug, id, federal_cite, richness) %>%
   head(50) %>%
   gt() %>%
   tab_header(title = "Top Cases - By Dictionary Richness") %>%
-  cols_label(slug = "Case", id = "Case ID", richness = "Percent of Dictionary Terms in Case")
+  cols_label(slug = "Case", id = "Case ID", federal_cite = "Federal Citation", richness = "Percent of Dictionary Terms in Case")
   
 
 case_richness
@@ -226,7 +227,7 @@ Additionally, here are the 5 richest individual cases from the 25 richest courts
 ```{r richest_court_cases}
 
 case_richness_overall <- dictionary_cases %>%
-  right_join(corpus_relevant, by = "id") %>%
+  right_join(corpus_relevant, by = c("id", "federal_cite")) %>%
   mutate(slug = slug.x) %>%
   mutate(richness = 100*(count/doc_length_post_clean)) %>%
   select(id, slug, count, doc_length_post_clean, richness, year, court, judges, federal_cite, resource_uri) %>%
@@ -255,276 +256,276 @@ for(i in 1:25){
 court_in_question <- richest_courts[[1]][1]
 case_richness_in_question <- case_richness_overall %>%
     filter(court == court_in_question) %>%
-    select(id, slug, year, richness) %>%
+    select(id, federal_cite, slug, year, richness) %>%
     arrange(-richness) %>%
     head(5) %>%
     gt() %>%
     tab_header(title = paste("Top Cases - ", court_in_question)) %>%
-    cols_label(id = "ID", slug = "slug", year = "Year", richness = "Richness")
+    cols_label(id = "ID", federal_cite = "Federal Citation", slug = "slug", year = "Year", richness = "Richness")
 case_richness_in_question
 
 court_in_question <- richest_courts[[1]][2]
 case_richness_in_question <- case_richness_overall %>%
     filter(court == court_in_question) %>%
-    select(id, slug, year, richness) %>%
+    select(id, federal_cite, slug, year, richness) %>%
     arrange(-richness) %>%
     head(5) %>%
     gt() %>%
     tab_header(title = paste("Top Cases - ", court_in_question)) %>%
-    cols_label(id = "ID", slug = "slug", year = "Year", richness = "Richness")
+    cols_label(id = "ID", federal_cite = "Federal Citation", slug = "slug", year = "Year", richness = "Richness")
 case_richness_in_question
 
 court_in_question <- richest_courts[[1]][3]
 case_richness_in_question <- case_richness_overall %>%
     filter(court == court_in_question) %>%
-    select(id, slug, year, richness) %>%
+    select(id, federal_cite, slug, year, richness) %>%
     arrange(-richness) %>%
     head(5) %>%
     gt() %>%
     tab_header(title = paste("Top Cases - ", court_in_question)) %>%
-    cols_label(id = "ID", slug = "slug", year = "Year", richness = "Richness")
+    cols_label(id = "ID", federal_cite = "Federal Citation", slug = "slug", year = "Year", richness = "Richness")
 case_richness_in_question
 
 court_in_question <- richest_courts[[1]][4]
 case_richness_in_question <- case_richness_overall %>%
     filter(court == court_in_question) %>%
-    select(id, slug, year, richness) %>%
+    select(id, federal_cite, slug, year, richness) %>%
     arrange(-richness) %>%
     head(5) %>%
     gt() %>%
     tab_header(title = paste("Top Cases - ", court_in_question)) %>%
-    cols_label(id = "ID", slug = "slug", year = "Year", richness = "Richness")
+    cols_label(id = "ID", federal_cite = "Federal Citation", slug = "slug", year = "Year", richness = "Richness")
 case_richness_in_question
 
 court_in_question <- richest_courts[[1]][5]
 case_richness_in_question <- case_richness_overall %>%
     filter(court == court_in_question) %>%
-    select(id, slug, year, richness) %>%
+    select(id, federal_cite, slug, year, richness) %>%
     arrange(-richness) %>%
     head(5) %>%
     gt() %>%
     tab_header(title = paste("Top Cases - ", court_in_question)) %>%
-    cols_label(id = "ID", slug = "slug", year = "Year", richness = "Richness")
+    cols_label(id = "ID", federal_cite = "Federal Citation", slug = "slug", year = "Year", richness = "Richness")
 case_richness_in_question
 
 court_in_question <- richest_courts[[1]][6]
 case_richness_in_question <- case_richness_overall %>%
     filter(court == court_in_question) %>%
-    select(id, slug, year, richness) %>%
+    select(id, federal_cite, slug, year, richness) %>%
     arrange(-richness) %>%
     head(5) %>%
     gt() %>%
     tab_header(title = paste("Top Cases - ", court_in_question)) %>%
-    cols_label(id = "ID", slug = "slug", year = "Year", richness = "Richness")
+    cols_label(id = "ID", federal_cite = "Federal Citation", slug = "slug", year = "Year", richness = "Richness")
 case_richness_in_question
 
 court_in_question <- richest_courts[[1]][7]
 case_richness_in_question <- case_richness_overall %>%
     filter(court == court_in_question) %>%
-    select(id, slug, year, richness) %>%
+    select(id, federal_cite, slug, year, richness) %>%
     arrange(-richness) %>%
     head(5) %>%
     gt() %>%
     tab_header(title = paste("Top Cases - ", court_in_question)) %>%
-    cols_label(id = "ID", slug = "slug", year = "Year", richness = "Richness")
+    cols_label(id = "ID", federal_cite = "Federal Citation", slug = "slug", year = "Year", richness = "Richness")
 case_richness_in_question
 
 court_in_question <- richest_courts[[1]][8]
 case_richness_in_question <- case_richness_overall %>%
     filter(court == court_in_question) %>%
-    select(id, slug, year, richness) %>%
+    select(id, federal_cite, slug, year, richness) %>%
     arrange(-richness) %>%
     head(5) %>%
     gt() %>%
     tab_header(title = paste("Top Cases - ", court_in_question)) %>%
-    cols_label(id = "ID", slug = "slug", year = "Year", richness = "Richness")
+    cols_label(id = "ID", federal_cite = "Federal Citation", slug = "slug", year = "Year", richness = "Richness")
 case_richness_in_question
 
 court_in_question <- richest_courts[[1]][9]
 case_richness_in_question <- case_richness_overall %>%
     filter(court == court_in_question) %>%
-    select(id, slug, year, richness) %>%
+    select(id, federal_cite, slug, year, richness) %>%
     arrange(-richness) %>%
     head(5) %>%
     gt() %>%
     tab_header(title = paste("Top Cases - ", court_in_question)) %>%
-    cols_label(id = "ID", slug = "slug", year = "Year", richness = "Richness")
+    cols_label(id = "ID", federal_cite = "Federal Citation", slug = "slug", year = "Year", richness = "Richness")
 case_richness_in_question
 
 court_in_question <- richest_courts[[1]][10]
 case_richness_in_question <- case_richness_overall %>%
     filter(court == court_in_question) %>%
-    select(id, slug, year, richness) %>%
+    select(id, federal_cite, slug, year, richness) %>%
     arrange(-richness) %>%
     head(5) %>%
     gt() %>%
     tab_header(title = paste("Top Cases - ", court_in_question)) %>%
-    cols_label(id = "ID", slug = "slug", year = "Year", richness = "Richness")
+    cols_label(id = "ID", federal_cite = "Federal Citation", slug = "slug", year = "Year", richness = "Richness")
 case_richness_in_question
 
 court_in_question <- richest_courts[[1]][11]
 case_richness_in_question <- case_richness_overall %>%
     filter(court == court_in_question) %>%
-    select(id, slug, year, richness) %>%
+    select(id, federal_cite, slug, year, richness) %>%
     arrange(-richness) %>%
     head(5) %>%
     gt() %>%
     tab_header(title = paste("Top Cases - ", court_in_question)) %>%
-    cols_label(id = "ID", slug = "slug", year = "Year", richness = "Richness")
+    cols_label(id = "ID", federal_cite = "Federal Citation", slug = "slug", year = "Year", richness = "Richness")
 case_richness_in_question
 
 court_in_question <- richest_courts[[1]][12]
 case_richness_in_question <- case_richness_overall %>%
     filter(court == court_in_question) %>%
-    select(id, slug, year, richness) %>%
+    select(id, federal_cite, slug, year, richness) %>%
     arrange(-richness) %>%
     head(5) %>%
     gt() %>%
     tab_header(title = paste("Top Cases - ", court_in_question)) %>%
-    cols_label(id = "ID", slug = "slug", year = "Year", richness = "Richness")
+    cols_label(id = "ID", federal_cite = "Federal Citation", slug = "slug", year = "Year", richness = "Richness")
 case_richness_in_question
 
 court_in_question <- richest_courts[[1]][13]
 case_richness_in_question <- case_richness_overall %>%
     filter(court == court_in_question) %>%
-    select(id, slug, year, richness) %>%
+    select(id, federal_cite, slug, year, richness) %>%
     arrange(-richness) %>%
     head(5) %>%
     gt() %>%
     tab_header(title = paste("Top Cases - ", court_in_question)) %>%
-    cols_label(id = "ID", slug = "slug", year = "Year", richness = "Richness")
+    cols_label(id = "ID", federal_cite = "Federal Citation", slug = "slug", year = "Year", richness = "Richness")
 case_richness_in_question
 
 court_in_question <- richest_courts[[1]][14]
 case_richness_in_question <- case_richness_overall %>%
     filter(court == court_in_question) %>%
-    select(id, slug, year, richness) %>%
+    select(id, federal_cite, slug, year, richness) %>%
     arrange(-richness) %>%
     head(5) %>%
     gt() %>%
     tab_header(title = paste("Top Cases - ", court_in_question)) %>%
-    cols_label(id = "ID", slug = "slug", year = "Year", richness = "Richness")
+    cols_label(id = "ID", federal_cite = "Federal Citation", slug = "slug", year = "Year", richness = "Richness")
 case_richness_in_question
 
 court_in_question <- richest_courts[[1]][15]
 case_richness_in_question <- case_richness_overall %>%
     filter(court == court_in_question) %>%
-    select(id, slug, year, richness) %>%
+    select(id, federal_cite, slug, year, richness) %>%
     arrange(-richness) %>%
     head(5) %>%
     gt() %>%
     tab_header(title = paste("Top Cases - ", court_in_question)) %>%
-    cols_label(id = "ID", slug = "slug", year = "Year", richness = "Richness")
+    cols_label(id = "ID", federal_cite = "Federal Citation", slug = "slug", year = "Year", richness = "Richness")
 case_richness_in_question
 
 court_in_question <- richest_courts[[1]][16]
 case_richness_in_question <- case_richness_overall %>%
     filter(court == court_in_question) %>%
-    select(id, slug, year, richness) %>%
+    select(id, federal_cite, slug, year, richness) %>%
     arrange(-richness) %>%
     head(5) %>%
     gt() %>%
     tab_header(title = paste("Top Cases - ", court_in_question)) %>%
-    cols_label(id = "ID", slug = "slug", year = "Year", richness = "Richness")
+    cols_label(id = "ID", federal_cite = "Federal Citation", slug = "slug", year = "Year", richness = "Richness")
 case_richness_in_question
 
 court_in_question <- richest_courts[[1]][17]
 case_richness_in_question <- case_richness_overall %>%
     filter(court == court_in_question) %>%
-    select(id, slug, year, richness) %>%
+    select(id, federal_cite, slug, year, richness) %>%
     arrange(-richness) %>%
     head(5) %>%
     gt() %>%
     tab_header(title = paste("Top Cases - ", court_in_question)) %>%
-    cols_label(id = "ID", slug = "slug", year = "Year", richness = "Richness")
+    cols_label(id = "ID", federal_cite = "Federal Citation", slug = "slug", year = "Year", richness = "Richness")
 case_richness_in_question
 
 court_in_question <- richest_courts[[1]][18]
 case_richness_in_question <- case_richness_overall %>%
     filter(court == court_in_question) %>%
-    select(id, slug, year, richness) %>%
+    select(id, federal_cite, slug, year, richness) %>%
     arrange(-richness) %>%
     head(5) %>%
     gt() %>%
     tab_header(title = paste("Top Cases - ", court_in_question)) %>%
-    cols_label(id = "ID", slug = "slug", year = "Year", richness = "Richness")
+    cols_label(id = "ID", federal_cite = "Federal Citation", slug = "slug", year = "Year", richness = "Richness")
 case_richness_in_question
 
 court_in_question <- richest_courts[[1]][19]
 case_richness_in_question <- case_richness_overall %>%
     filter(court == court_in_question) %>%
-    select(id, slug, year, richness) %>%
+    select(id, federal_cite, slug, year, richness) %>%
     arrange(-richness) %>%
     head(5) %>%
     gt() %>%
     tab_header(title = paste("Top Cases - ", court_in_question)) %>%
-    cols_label(id = "ID", slug = "slug", year = "Year", richness = "Richness")
+    cols_label(id = "ID", federal_cite = "Federal Citation", slug = "slug", year = "Year", richness = "Richness")
 case_richness_in_question
 
 court_in_question <- richest_courts[[1]][20]
 case_richness_in_question <- case_richness_overall %>%
     filter(court == court_in_question) %>%
-    select(id, slug, year, richness) %>%
+    select(id, federal_cite, slug, year, richness) %>%
     arrange(-richness) %>%
     head(5) %>%
     gt() %>%
     tab_header(title = paste("Top Cases - ", court_in_question)) %>%
-    cols_label(id = "ID", slug = "slug", year = "Year", richness = "Richness")
+    cols_label(id = "ID", federal_cite = "Federal Citation", slug = "slug", year = "Year", richness = "Richness")
 case_richness_in_question
 
 court_in_question <- richest_courts[[1]][21]
 case_richness_in_question <- case_richness_overall %>%
     filter(court == court_in_question) %>%
-    select(id, slug, year, richness) %>%
+    select(id, federal_cite, slug, year, richness) %>%
     arrange(-richness) %>%
     head(5) %>%
     gt() %>%
     tab_header(title = paste("Top Cases - ", court_in_question)) %>%
-    cols_label(id = "ID", slug = "slug", year = "Year", richness = "Richness")
+    cols_label(id = "ID", federal_cite = "Federal Citation", slug = "slug", year = "Year", richness = "Richness")
 case_richness_in_question
 
 court_in_question <- richest_courts[[1]][22]
 case_richness_in_question <- case_richness_overall %>%
     filter(court == court_in_question) %>%
-    select(id, slug, year, richness) %>%
+    select(id, federal_cite, slug, year, richness) %>%
     arrange(-richness) %>%
     head(5) %>%
     gt() %>%
     tab_header(title = paste("Top Cases - ", court_in_question)) %>%
-    cols_label(id = "ID", slug = "slug", year = "Year", richness = "Richness")
+    cols_label(id = "ID", federal_cite = "Federal Citation", slug = "slug", year = "Year", richness = "Richness")
 case_richness_in_question
 
 court_in_question <- richest_courts[[1]][23]
 case_richness_in_question <- case_richness_overall %>%
     filter(court == court_in_question) %>%
-    select(id, slug, year, richness) %>%
+    select(id, federal_cite, slug, year, richness) %>%
     arrange(-richness) %>%
     head(5) %>%
     gt() %>%
     tab_header(title = paste("Top Cases - ", court_in_question)) %>%
-    cols_label(id = "ID", slug = "slug", year = "Year", richness = "Richness")
+    cols_label(id = "ID", federal_cite = "Federal Citation", slug = "slug", year = "Year", richness = "Richness")
 case_richness_in_question
 
 court_in_question <- richest_courts[[1]][24]
 case_richness_in_question <- case_richness_overall %>%
     filter(court == court_in_question) %>%
-    select(id, slug, year, richness) %>%
+    select(id, federal_cite, slug, year, richness) %>%
     arrange(-richness) %>%
     head(5) %>%
     gt() %>%
     tab_header(title = paste("Top Cases - ", court_in_question)) %>%
-    cols_label(id = "ID", slug = "slug", year = "Year", richness = "Richness")
+    cols_label(id = "ID", federal_cite = "Federal Citation", slug = "slug", year = "Year", richness = "Richness")
 case_richness_in_question
 
 court_in_question <- richest_courts[[1]][25]
 case_richness_in_question <- case_richness_overall %>%
     filter(court == court_in_question) %>%
-    select(id, slug, year, richness) %>%
+    select(id, federal_cite, slug, year, richness) %>%
     arrange(-richness) %>%
     head(5) %>%
     gt() %>%
     tab_header(title = paste("Top Cases - ", court_in_question)) %>%
-    cols_label(id = "ID", slug = "slug", year = "Year", richness = "Richness")
+    cols_label(id = "ID", federal_cite = "Federal Citation", slug = "slug", year = "Year", richness = "Richness")
 case_richness_in_question
 
 ```
@@ -570,7 +571,11 @@ rel_count_graph <- function(term){
     summarise(count = n()) %>%
     right_join(overall_occurrences, by = "year") %>%
     arrange(year) %>%
-    mutate(percent_occurr = 100*(count/count_ovr)) %>%
+    mutate(percent_occurr = 100*(count/count_ovr))
+    
+  pull_sum$percent_occurr[is.na(pull_sum$percent_occurr)] <- 0
+  
+  pull_sum <- pull_sum %>%
     select(year, percent_occurr)
     
   
@@ -587,6 +592,9 @@ for(i in 1:nrow(dictionary_stemmed)){
   raw_count_graph(dictionary_stemmed[[1]][i])
   rel_count_graph(dictionary_stemmed[[1]][i])
 }
+
+  
+    
 
 ```
 
